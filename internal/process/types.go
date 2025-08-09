@@ -29,29 +29,29 @@ const (
 
 // HealthCheck defines how to check if a process is healthy
 type HealthCheck struct {
-	Type      HealthCheckType `json:"type"`
-	Target    string          `json:"target"`    // URL for HTTP, address for TCP, command for command
-	Interval  time.Duration   `json:"interval"`  // How often to check
-	Timeout   time.Duration   `json:"timeout"`   // Timeout for each check
-	Retries   int             `json:"retries"`   // Number of retries before marking unhealthy
-	Enabled   bool            `json:"enabled"`   // Whether health checking is enabled
+	Type     HealthCheckType `json:"type"`
+	Target   string          `json:"target"`   // URL for HTTP, address for TCP, command for command
+	Interval time.Duration   `json:"interval"` // How often to check
+	Timeout  time.Duration   `json:"timeout"`  // Timeout for each check
+	Retries  int             `json:"retries"`  // Number of retries before marking unhealthy
+	Enabled  bool            `json:"enabled"`  // Whether health checking is enabled
 }
 
 // ManagedProcess represents a process managed by portguard
 type ManagedProcess struct {
-	ID          string       `json:"id"`           // Unique identifier
-	Command     string       `json:"command"`      // Command that was executed
-	Args        []string     `json:"args"`         // Command arguments
-	Port        int          `json:"port"`         // Primary port the process is using
-	PID         int          `json:"pid"`          // Process ID
-	Status      ProcessStatus `json:"status"`      // Current status
-	HealthCheck *HealthCheck `json:"health_check"` // Health check configuration
-	CreatedAt   time.Time    `json:"created_at"`   // When the process was started
-	UpdatedAt   time.Time    `json:"updated_at"`   // Last status update
-	LastSeen    time.Time    `json:"last_seen"`    // Last time process was confirmed running
-	Environment map[string]string `json:"environment"` // Environment variables
-	WorkingDir  string       `json:"working_dir"`  // Working directory
-	LogFile     string       `json:"log_file"`     // Path to log file
+	ID          string            `json:"id"`           // Unique identifier
+	Command     string            `json:"command"`      // Command that was executed
+	Args        []string          `json:"args"`         // Command arguments
+	Port        int               `json:"port"`         // Primary port the process is using
+	PID         int               `json:"pid"`          // Process ID
+	Status      ProcessStatus     `json:"status"`       // Current status
+	HealthCheck *HealthCheck      `json:"health_check"` // Health check configuration
+	CreatedAt   time.Time         `json:"created_at"`   // When the process was started
+	UpdatedAt   time.Time         `json:"updated_at"`   // Last status update
+	LastSeen    time.Time         `json:"last_seen"`    // Last time process was confirmed running
+	Environment map[string]string `json:"environment"`  // Environment variables
+	WorkingDir  string            `json:"working_dir"`  // Working directory
+	LogFile     string            `json:"log_file"`     // Path to log file
 }
 
 // IsHealthy checks if the process is considered healthy

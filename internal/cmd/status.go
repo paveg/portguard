@@ -24,11 +24,11 @@ Examples:
 			processID := args[0]
 			fmt.Printf("Showing status for process: %s\n", processID)
 		}
-		
+
 		if jsonOutput {
 			fmt.Println("JSON output requested")
 		}
-		
+
 		// TODO: Implement actual status checking logic
 		fmt.Println("Status checking not yet implemented")
 	},
@@ -36,6 +36,6 @@ Examples:
 
 func init() {
 	rootCmd.AddCommand(statusCmd)
-	
+
 	statusCmd.Flags().BoolVar(&jsonOutput, "json", false, "output in JSON format")
 }

@@ -1,0 +1,58 @@
+{
+  "$schema": "https://schema.anthropic.com/claude-code/settings.json",
+  "description": "Claude Code settings with official hooks format",
+  
+  "hooks": [
+    {
+      "matchers": [
+        {
+          "tool": "Bash"
+        }
+      ],
+      "hooks": [
+        {
+          "event": "preToolUse",
+          "command": "~/.config/claude-code/hooks/pretooluse.sh",
+          "timeout": 10000,
+          "failureHandling": "allow",
+          "description": "Prevent duplicate server processes",
+          "environment": {
+            "PORTGUARD_BIN": "portguard"
+          }
+        },
+        {
+          "event": "postToolUse",
+          "command": "~/.config/claude-code/hooks/posttooluse.sh",
+          "timeout": 5000,
+          "failureHandling": "ignore",
+          "description": "Register successful server startups",
+          "environment": {
+            "PORTGUARD_BIN": "portguard"
+          }
+        }
+      ]
+    }
+  ],
+  
+  "tools": {
+    "bash": {
+      "enabled": true,
+      "timeout": 300000
+    },
+    "read": {
+      "enabled": true
+    },
+    "write": {
+      "enabled": true
+    },
+    "edit": {
+      "enabled": true
+    }
+  },
+  
+  "security": {
+    "allowScriptExecution": true,
+    "allowNetworkAccess": true,
+    "allowFileSystemAccess": true
+  }
+}

@@ -13,19 +13,19 @@ import (
 
 // Static error variables to satisfy err113 linter
 var (
-	ErrInvalidPortRange        = errors.New("start port must be less than end port")
-	ErrInvalidStartPort        = errors.New("invalid start port")
-	ErrInvalidEndPort          = errors.New("invalid end port")
-	ErrHealthCheckTimeout      = errors.New("health check timeout must be positive")
-	ErrHealthCheckInterval     = errors.New("health check interval must be positive")
-	ErrHealthCheckRetries      = errors.New("health check retries cannot be negative")
-	ErrProjectEmptyCommand     = errors.New("project has empty command")
-	ErrProjectInvalidPort      = errors.New("project has invalid port")
+	ErrInvalidPortRange    = errors.New("start port must be less than end port")
+	ErrInvalidStartPort    = errors.New("invalid start port")
+	ErrInvalidEndPort      = errors.New("invalid end port")
+	ErrHealthCheckTimeout  = errors.New("health check timeout must be positive")
+	ErrHealthCheckInterval = errors.New("health check interval must be positive")
+	ErrHealthCheckRetries  = errors.New("health check retries cannot be negative")
+	ErrProjectEmptyCommand = errors.New("project has empty command")
+	ErrProjectInvalidPort  = errors.New("project has invalid port")
 )
 
 // Config represents the application configuration
 type Config struct {
-	Default  *DefaultConfig           `mapstructure:"default" yaml:"default"`
+	Default  *DefaultConfig            `mapstructure:"default" yaml:"default"`
 	Projects map[string]*ProjectConfig `mapstructure:"projects" yaml:"projects"`
 }
 
@@ -55,26 +55,26 @@ type PortRangeConfig struct {
 
 // CleanupConfig contains cleanup settings
 type CleanupConfig struct {
-	AutoCleanup   bool          `mapstructure:"auto_cleanup" yaml:"auto_cleanup"`
-	MaxIdleTime   time.Duration `mapstructure:"max_idle_time" yaml:"max_idle_time"`
+	AutoCleanup     bool          `mapstructure:"auto_cleanup" yaml:"auto_cleanup"`
+	MaxIdleTime     time.Duration `mapstructure:"max_idle_time" yaml:"max_idle_time"`
 	BackupRetention time.Duration `mapstructure:"backup_retention" yaml:"backup_retention"`
 }
 
 // ProjectConfig contains project-specific settings
 type ProjectConfig struct {
-	Command     string                   `mapstructure:"command" yaml:"command"`
-	Port        int                      `mapstructure:"port" yaml:"port"`
-	HealthCheck *process.HealthCheck     `mapstructure:"health_check" yaml:"health_check"`
-	Environment map[string]string        `mapstructure:"environment" yaml:"environment"`
-	WorkingDir  string                   `mapstructure:"working_dir" yaml:"working_dir"`
-	LogFile     string                   `mapstructure:"log_file" yaml:"log_file"`
+	Command     string               `mapstructure:"command" yaml:"command"`
+	Port        int                  `mapstructure:"port" yaml:"port"`
+	HealthCheck *process.HealthCheck `mapstructure:"health_check" yaml:"health_check"`
+	Environment map[string]string    `mapstructure:"environment" yaml:"environment"`
+	WorkingDir  string               `mapstructure:"working_dir" yaml:"working_dir"`
+	LogFile     string               `mapstructure:"log_file" yaml:"log_file"`
 }
 
 // Load loads configuration from file and environment
 func Load() (*Config, error) {
 	// Set defaults
 	setDefaults()
-	
+
 	// Try to read config file
 	if err := viper.ReadInConfig(); err != nil {
 		var configNotFoundError viper.ConfigFileNotFoundError
@@ -83,26 +83,26 @@ func Load() (*Config, error) {
 		}
 		// Config file not found is OK, we'll use defaults
 	}
-	
+
 	var config Config
 	if err := viper.Unmarshal(&config); err != nil {
 		return nil, fmt.Errorf("unable to decode config: %w", err)
 	}
-	
+
 	// Apply defaults if not set
 	if config.Default == nil {
 		config.Default = getDefaultConfig()
 	}
-	
+
 	if config.Projects == nil {
 		config.Projects = make(map[string]*ProjectConfig)
 	}
-	
+
 	// Expand paths
 	if err := expandPaths(&config); err != nil {
 		return nil, fmt.Errorf("failed to expand paths: %w", err)
 	}
-	
+
 	return &config, nil
 }
 
@@ -113,16 +113,16 @@ func setDefaults() {
 	viper.SetDefault("default.health_check.timeout", "5s")
 	viper.SetDefault("default.health_check.interval", "30s")
 	viper.SetDefault("default.health_check.retries", 3)
-	
+
 	// Default port range
 	viper.SetDefault("default.port_range.start", 3000)
 	viper.SetDefault("default.port_range.end", 9000)
-	
+
 	// Default cleanup settings
 	viper.SetDefault("default.cleanup.auto_cleanup", true)
 	viper.SetDefault("default.cleanup.max_idle_time", "1h")
 	viper.SetDefault("default.cleanup.backup_retention", "7d")
-	
+
 	// Default file paths
 	homeDir, _ := os.UserHomeDir() //nolint:errcheck // Fallback to current dir if home unavailable
 	viper.SetDefault("default.state_file", filepath.Join(homeDir, ".portguard", "state.json"))
@@ -133,7 +133,7 @@ func setDefaults() {
 // getDefaultConfig returns the default configuration
 func getDefaultConfig() *DefaultConfig {
 	homeDir, _ := os.UserHomeDir() //nolint:errcheck // Fallback to current dir if home unavailable
-	
+
 	return &DefaultConfig{
 		HealthCheck: &HealthCheckConfig{
 			Enabled:  true,
@@ -166,7 +166,7 @@ func expandPaths(config *Config) error {
 			}
 			config.Default.StateFile = expanded
 		}
-		
+
 		if config.Default.LockFile != "" {
 			expanded, err := expandPath(config.Default.LockFile)
 			if err != nil {
@@ -175,7 +175,7 @@ func expandPaths(config *Config) error {
 			config.Default.LockFile = expanded
 		}
 	}
-	
+
 	// Expand paths in project configs
 	for _, project := range config.Projects {
 		if project.WorkingDir != "" {
@@ -185,7 +185,7 @@ func expandPaths(config *Config) error {
 			}
 			project.WorkingDir = expanded
 		}
-		
+
 		if project.LogFile != "" {
 			expanded, err := expandPath(project.LogFile)
 			if err != nil {
@@ -194,7 +194,7 @@ func expandPaths(config *Config) error {
 			project.LogFile = expanded
 		}
 	}
-	
+
 	return nil
 }
 
@@ -203,7 +203,7 @@ func expandPath(path string) (string, error) {
 	if path == "" {
 		return path, nil
 	}
-	
+
 	// Expand ~ to home directory
 	if path[:1] == "~" {
 		homeDir, err := os.UserHomeDir()
@@ -212,7 +212,7 @@ func expandPath(path string) (string, error) {
 		}
 		path = filepath.Join(homeDir, path[1:])
 	}
-	
+
 	// Convert to absolute path
 	abs, err := filepath.Abs(path)
 	if err != nil {
@@ -225,7 +225,7 @@ func expandPath(path string) (string, error) {
 func (c *Config) Save(filename string) error {
 	viper.Set("default", c.Default)
 	viper.Set("projects", c.Projects)
-	
+
 	if err := viper.WriteConfigAs(filename); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
@@ -275,7 +275,7 @@ func (c *Config) Validate() error {
 				return ErrInvalidPortRange
 			}
 		}
-		
+
 		// Validate health check settings
 		if c.Default.HealthCheck != nil {
 			if c.Default.HealthCheck.Timeout <= 0 {
@@ -289,7 +289,7 @@ func (c *Config) Validate() error {
 			}
 		}
 	}
-	
+
 	// Validate project configurations
 	for name, project := range c.Projects {
 		if project.Command == "" {
@@ -299,6 +299,6 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("%w: %s (port: %d)", ErrProjectInvalidPort, name, project.Port)
 		}
 	}
-	
+
 	return nil
 }

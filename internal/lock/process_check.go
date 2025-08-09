@@ -25,11 +25,11 @@ func processExistsUnix(pid int) bool {
 	// If the process exists, we get nil or permission error
 	// If the process doesn't exist, we get ESRCH
 	err := syscall.Kill(pid, 0)
-	
+
 	if err == nil {
 		return true // Process exists and we can signal it
 	}
-	
+
 	// Check the specific error
 	var errno syscall.Errno
 	if errors.As(err, &errno) {
@@ -42,7 +42,7 @@ func processExistsUnix(pid int) bool {
 			return false // Other error, assume process doesn't exist
 		}
 	}
-	
+
 	return false
 }
 
@@ -54,7 +54,7 @@ func processExistsWindows(pid int) bool {
 	if _, err := os.Stat(procDir); err == nil {
 		return true
 	}
-	
+
 	// Fallback: try to open the process (Windows-specific would need syscalls)
 	// For now, we'll use a simple heuristic
 	return pid > 0 && pid < 65536 // Basic PID range check

@@ -11,7 +11,7 @@ import (
 
 // Static error variables to satisfy err113 linter
 var (
-	ErrLockTimeout        = errors.New("failed to acquire lock within timeout")
+	ErrLockTimeout       = errors.New("failed to acquire lock within timeout")
 	ErrNotOwner          = errors.New("cannot unlock: we don't own the lock")
 	ErrInvalidLockFormat = errors.New("invalid lock file format")
 )
@@ -38,10 +38,10 @@ func (fl *FileLock) Lock() error {
 	if err := os.MkdirAll(filepath.Dir(fl.lockFile), 0o750); err != nil {
 		return fmt.Errorf("failed to create lock directory: %w", err)
 	}
-	
+
 	// Try to acquire lock with timeout
 	deadline := time.Now().Add(fl.lockTimeout)
-	
+
 	for time.Now().Before(deadline) {
 		// Try to create lock file exclusively
 		file, err := os.OpenFile(fl.lockFile, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
@@ -49,7 +49,7 @@ func (fl *FileLock) Lock() error {
 			// Successfully acquired lock
 			pid := os.Getpid()
 			timestamp := time.Now().Unix()
-			
+
 			// Write PID and timestamp to lock file
 			lockData := fmt.Sprintf("%d\n%d\n", pid, timestamp)
 			if _, err := file.WriteString(lockData); err != nil {
@@ -57,22 +57,22 @@ func (fl *FileLock) Lock() error {
 				return fmt.Errorf("failed to write lock data: %w", err)
 			}
 			file.Close()
-			
+
 			fl.locked = true
 			return nil
 		}
-		
+
 		// Check if existing lock is stale
 		if fl.isStale() {
 			// Remove stale lock and try again
 			_ = os.Remove(fl.lockFile) //nolint:errcheck // Best effort cleanup of stale lock
 			continue
 		}
-		
+
 		// Wait a bit before retrying
 		time.Sleep(100 * time.Millisecond)
 	}
-	
+
 	return fmt.Errorf("%w: %v", ErrLockTimeout, fl.lockTimeout)
 }
 
@@ -81,16 +81,16 @@ func (fl *FileLock) Unlock() error {
 	if !fl.locked {
 		return nil // Not locked by us
 	}
-	
+
 	// Verify we own the lock before removing it
 	if !fl.ownsLock() {
 		return ErrNotOwner
 	}
-	
+
 	if err := os.Remove(fl.lockFile); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to remove lock file: %w", err)
 	}
-	
+
 	fl.locked = false
 	return nil
 }
@@ -100,7 +100,7 @@ func (fl *FileLock) IsLocked() bool {
 	if fl.locked {
 		return true
 	}
-	
+
 	// Check if lock file exists
 	_, err := os.Stat(fl.lockFile)
 	return err == nil
@@ -112,12 +112,12 @@ func (fl *FileLock) isStale() bool {
 	if err != nil {
 		return true // Can't read lock file, consider it stale
 	}
-	
+
 	lines := string(data)
 	if len(lines) < 2 {
 		return true // Invalid lock file format
 	}
-	
+
 	// Parse PID from first line
 	pidStr := ""
 	for i, char := range lines {
@@ -126,16 +126,16 @@ func (fl *FileLock) isStale() bool {
 			break
 		}
 	}
-	
+
 	if pidStr == "" {
 		return true // No PID found
 	}
-	
+
 	pid, err := strconv.Atoi(pidStr)
 	if err != nil {
 		return true // Invalid PID
 	}
-	
+
 	// Check if process exists
 	return !processExists(pid)
 }
@@ -146,7 +146,7 @@ func (fl *FileLock) ownsLock() bool {
 	if err != nil {
 		return false
 	}
-	
+
 	lines := string(data)
 	pidStr := ""
 	for i, char := range lines {
@@ -155,16 +155,16 @@ func (fl *FileLock) ownsLock() bool {
 			break
 		}
 	}
-	
+
 	if pidStr == "" {
 		return false
 	}
-	
+
 	pid, err := strconv.Atoi(pidStr)
 	if err != nil {
 		return false
 	}
-	
+
 	return pid == os.Getpid()
 }
 
@@ -174,11 +174,11 @@ func (fl *FileLock) GetLockInfo() (*Info, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read lock file: %w", err)
 	}
-	
+
 	lines := string(data)
 	parts := make([]string, 0, 2)
 	current := ""
-	
+
 	for _, char := range lines {
 		if char == '\n' {
 			if current != "" {
@@ -189,21 +189,21 @@ func (fl *FileLock) GetLockInfo() (*Info, error) {
 			current += string(char)
 		}
 	}
-	
+
 	if len(parts) < 2 {
 		return nil, ErrInvalidLockFormat
 	}
-	
+
 	pid, err := strconv.Atoi(parts[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid PID in lock file: %w", err)
 	}
-	
+
 	timestamp, err := strconv.ParseInt(parts[1], 10, 64)
 	if err != nil {
 		return nil, fmt.Errorf("invalid timestamp in lock file: %w", err)
 	}
-	
+
 	return &Info{
 		PID:       pid,
 		Timestamp: time.Unix(timestamp, 0),
@@ -223,7 +223,7 @@ func (fl *FileLock) ForceClearLock() error {
 	if err := os.Remove(fl.lockFile); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to force clear lock: %w", err)
 	}
-	
+
 	fl.locked = false
 	return nil
 }
