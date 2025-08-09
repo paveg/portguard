@@ -1,0 +1,258 @@
+---
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run daily at 2 AM UTC to catch issues early
+    - cron: '0 2 * * *'
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.23', '1.24']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: >-
+            ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ matrix.go-version }}-
+            ${{ runner.os }}-go-
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Verify dependencies
+        run: go mod verify
+
+      - name: Run tests
+        run: make test
+
+      - name: Run tests with race detection
+        run: make test-race
+
+      - name: Generate test coverage
+        run: make test-coverage-ci
+
+      - name: Generate coverage comment
+        run: |
+          echo "## 📊 Test Coverage Summary" >> coverage-comment.md
+          echo "" >> coverage-comment.md
+          echo "| Package | Coverage |" >> coverage-comment.md
+          echo "|---------|----------|" >> coverage-comment.md
+          grep -v "total:" coverage-summary.txt | awk '{print "| " $1 " | " $3 " |"}' >> coverage-comment.md || true
+          echo "" >> coverage-comment.md
+          TOTAL=$(grep "total:" coverage-summary.txt | awk '{print $3}' || echo "0.0%")
+          echo "**Total Coverage: ${TOTAL}**" >> coverage-comment.md
+          echo "" >> coverage-comment.md
+          echo "Coverage reports available in workflow artifacts." >> coverage-comment.md
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.out
+          flags: unittests
+          name: codecov-umbrella-go-${{ matrix.go-version }}
+          fail_ci_if_error: true
+          verbose: true
+          disable_search: true
+          codecov_yml_path: ./codecov.yml
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload coverage artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-go-${{ matrix.go-version }}
+          path: |
+            coverage.out
+            coverage-report.html
+            coverage-summary.txt
+            coverage-comment.md
+          retention-days: 30
+
+      - name: Coverage threshold check
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total: | awk '{print $3}' | sed 's/%//')
+          echo "Current coverage: ${COVERAGE}%"
+          if (( $(echo "${COVERAGE} < 70" | bc -l) )); then
+            echo "::error::Coverage ${COVERAGE}% is below minimum threshold of 70%"
+            exit 1
+          fi
+          echo "::notice::Coverage ${COVERAGE}% meets the minimum threshold"
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-1.24-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-1.24-
+            ${{ runner.os }}-go-
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: latest
+          args: --timeout=5m --config=.golangci.yml
+
+      - name: Run custom lint checks
+        run: make lint
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [test, lint]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-1.24-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-1.24-
+            ${{ runner.os }}-go-
+
+      - name: Build binary
+        run: make build
+
+      - name: Test build artifacts
+        run: |
+          ./build/portguard --version
+          ./build/portguard --help
+
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [build]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Build binary
+        run: make build
+
+      - name: Run integration tests
+        run: |
+          # Test hook scripts
+          chmod +x hooks/*.sh
+          ./hooks/test_hooks.sh
+
+      - name: Run AI integration tests
+        run: make ai-test
+
+  cross-platform:
+    name: Cross-platform Build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [test, lint]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Build for multiple platforms
+        run: make build-all
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: portguard-binaries
+          path: build/
+          retention-days: 30
+
+  coverage-report:
+    name: Coverage Report
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download coverage artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-report-go-1.24
+          path: ./coverage-artifacts
+
+      - name: Comment coverage summary on PR
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          recreate: true
+          path: ./coverage-artifacts/coverage-comment.md
+
+      - name: Coverage Badge
+        uses: tj-actions/coverage-badge-go@v2
+        with:
+          filename: ./coverage-artifacts/coverage.out
+          green: 80
+          yellow: 70
+
+      - name: Verify coverage badge
+        run: |
+          git diff --exit-code || (
+            echo "Coverage badge updated"
+            git config --local user.email "action@github.com"
+            git config --local user.name "GitHub Action"
+            git add README.md
+            git commit -m "chore: update coverage badge [skip ci]" || true
+          )
+

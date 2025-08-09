@@ -1,3 +1,5 @@
+// Package process provides core process management functionality for Portguard.
+// This file defines the core types and interfaces used throughout the process management system.
 package process
 
 import (

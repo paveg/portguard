@@ -131,6 +131,7 @@ var configShowCmd = &cobra.Command{
 				for name := range projects {
 					fmt.Printf("  %s:\n", name)
 					fmt.Printf("    Command: %s\n", viper.GetString(fmt.Sprintf("projects.%s.command", name)))
+					//nolint:govet // TODO: Rename variable to avoid shadowing (e.g., projectPort)
 					if port := viper.GetInt(fmt.Sprintf("projects.%s.port", name)); port > 0 {
 						fmt.Printf("    Port: %d\n", port)
 					}

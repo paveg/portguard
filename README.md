@@ -1,5 +1,10 @@
 # Portguard
 
+[![CI](https://github.com/paveg/portguard/workflows/CI/badge.svg)](https://github.com/paveg/portguard/actions)
+[![Coverage](https://img.shields.io/badge/Coverage-0%25-red)](https://github.com/paveg/portguard/actions)
+[![Go Report Card](https://goreportcard.com/badge/github.com/paveg/portguard)](https://goreportcard.com/report/github.com/paveg/portguard)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 AI-aware process management tool designed to prevent duplicate server startups when using AI development tools like Claude Code, GitHub Copilot, and Cursor.
 
 ## Problem

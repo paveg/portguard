@@ -32,6 +32,17 @@ test-coverage:
 	go tool cover -func=coverage.out
 	@echo "Coverage report: coverage.html"
 
+# Run tests with coverage and generate reports
+test-coverage-ci:
+	@echo "Running tests with coverage for CI..."
+	go test -v -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out -o coverage-report.html
+	go tool cover -func=coverage.out -o coverage-summary.txt
+	@echo "Coverage reports generated:"
+	@echo "  - coverage.out (raw profile)"
+	@echo "  - coverage-report.html (HTML report)" 
+	@echo "  - coverage-summary.txt (function summary)"
+
 # Run tests with race detection
 test-race:
 	@echo "Running tests with race detection..."
@@ -152,7 +163,7 @@ deps-check:
 # Security scan
 security:
 	@echo "Running security scan..."
-	@which gosec > /dev/null || (echo "Installing gosec..." && go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest)
+	@which gosec > /dev/null || (echo "Installing gosec..." && go install github.com/securego/gosec/v2/cmd/gosec@latest)
 	gosec ./...
 
 # Help

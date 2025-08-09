@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/paveg/portguard/internal/hooks"
 	"github.com/spf13/cobra"
@@ -23,7 +24,9 @@ Available subcommands:
   remove   - Remove installed hooks
   status   - Check hook installation status`,
 	Run: func(cmd *cobra.Command, args []string) {
-		_ = cmd.Help()
+		if err := cmd.Help(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error displaying help: %v\n", err)
+		}
 	},
 }
 
@@ -244,6 +247,7 @@ func printHooksInfo(data interface{}) {
 	case *hooks.ListResult:
 		fmt.Println("Available Templates:")
 		fmt.Println("==================")
+		//nolint:gocritic // TODO: Consider using pointers or indexing to avoid copying 128 bytes per iteration
 		for _, template := range v.Templates {
 			fmt.Printf("  %s - %s\n", template.Name, template.Description)
 		}

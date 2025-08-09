@@ -67,6 +67,10 @@ state.json.backup.*
 coverage.out
 coverage.html
 coverage.xml
+coverage-report.html
+coverage-summary.txt
+coverage-comment.md
+coverage-detailed.html
 
 # Debugging
 debug

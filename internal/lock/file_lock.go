@@ -1,3 +1,6 @@
+// Package lock provides file-based locking mechanisms for Portguard.
+// It implements cross-process synchronization to prevent concurrent access conflicts
+// during process management operations.
 package lock
 
 import (

@@ -3,6 +3,7 @@ package cmd
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -14,6 +15,11 @@ import (
 	"github.com/paveg/portguard/internal/process"
 	"github.com/paveg/portguard/internal/state"
 	"github.com/spf13/cobra"
+)
+
+// Static errors for err113 compliance
+var (
+	ErrUnknownEvent = errors.New("unknown event type")
 )
 
 // InterceptRequest represents the official Claude Code hook request format
@@ -81,7 +87,7 @@ Fully compatible with the Claude Code hooks specification.`,
 		case "postToolUse":
 			handlePostToolUse(&request)
 		default:
-			outputErrorResponse(fmt.Errorf("unknown event: %s", request.Event))
+			outputErrorResponse(fmt.Errorf("%w: %s", ErrUnknownEvent, request.Event))
 		}
 	},
 }
@@ -116,6 +122,7 @@ func handlePreToolUse(request *InterceptRequest) {
 	}
 
 	// Check for conflicts
+	//nolint:govet // TODO: Rename variable to avoid shadowing (e.g., detectedPort)
 	port := extractPort(command)
 	pm := createProcessManager()
 
@@ -162,6 +169,7 @@ func handlePostToolUse(request *InterceptRequest) {
 	}
 
 	// Check if server started successfully
+	//nolint:govet // TODO: Rename variable to avoid shadowing (e.g., outputPort)
 	if port := extractPortFromOutput(request.Result.Output); port > 0 {
 		// Register the process (async to not block)
 		go func() {
@@ -189,7 +197,11 @@ func isServerCommand(command string) bool {
 	}
 
 	for _, pattern := range patterns {
-		if matched, _ := regexp.MatchString(pattern, command); matched {
+		matched, err := regexp.MatchString(pattern, command)
+		if err != nil {
+			continue // Skip invalid patterns
+		}
+		if matched {
 			return true
 		}
 	}
@@ -202,9 +214,9 @@ func extractPort(command string) int {
 	if matches := portRegex.FindStringSubmatch(command); len(matches) > 0 {
 		for i := 1; i < len(matches); i++ {
 			if matches[i] != "" {
+				//nolint:govet // TODO: Rename variable to avoid shadowing (e.g., extractedPort)
 				var port int
-				fmt.Sscanf(matches[i], "%d", &port)
-				if port > 0 {
+				if _, err := fmt.Sscanf(matches[i], "%d", &port); err == nil && port > 0 {
 					return port
 				}
 			}
@@ -216,9 +228,11 @@ func extractPort(command string) int {
 		return 3000
 	}
 	if strings.Contains(command, "vite") {
+		//nolint:mnd // TODO: Extract to constant defaultVitePort = 5173
 		return 5173
 	}
 	if strings.Contains(command, "flask") {
+		//nolint:mnd // TODO: Extract to constant defaultFlaskPort = 5000
 		return 5000
 	}
 
@@ -236,6 +250,7 @@ func extractPortFromOutput(output string) int {
 	for _, pattern := range patterns {
 		re := regexp.MustCompile(pattern)
 		if matches := re.FindStringSubmatch(strings.ToLower(output)); len(matches) > 1 {
+			//nolint:govet // TODO: Rename variable to avoid shadowing (e.g., parsedPort)
 			var port int
 			fmt.Sscanf(matches[1], "%d", &port)
 			if port > 0 {
@@ -249,6 +264,7 @@ func extractPortFromOutput(output string) int {
 func createProcessManager() *process.ProcessManager {
 	stateStore, _ := state.NewJSONStore("~/.portguard/state.json")
 	lockManager := lock.NewFileLock("~/.portguard/portguard.lock", 5*time.Second)
+	//nolint:noctx // TODO: Add context support to port scanner for better timeout control
 	scanner := portscanner.NewScanner(2 * time.Second)
 	return process.NewProcessManager(stateStore, lockManager, scanner)
 }

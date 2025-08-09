@@ -1,3 +1,4 @@
+// Package hooks defines types for Claude Code hook system integration.
 package hooks
 
 import (

@@ -1,3 +1,6 @@
+// Package state provides persistent state management for Portguard.
+// It implements JSON-based storage for process state with atomic operations
+// and concurrent access protection.
 package state
 
 import (

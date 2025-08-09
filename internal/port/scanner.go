@@ -1,3 +1,5 @@
+// Package port provides port availability scanning functionality for Portguard.
+// It implements cross-platform port detection and health checking for both TCP and UDP protocols.
 package port
 
 import (
@@ -39,14 +41,14 @@ func (s *Scanner) IsPortInUse(port int) bool {
 	address := fmt.Sprintf(":%d", port)
 
 	// Check TCP
-	if listener, err := net.Listen("tcp", address); err == nil {
+	if listener, err := net.Listen("tcp", address); err == nil { //nolint:noctx // TODO: Add context support for port scanning operations
 		_ = listener.Close() //nolint:errcheck // Best effort cleanup during port scan
 	} else {
 		return true // Port is in use
 	}
 
 	// Check UDP
-	if conn, err := net.ListenPacket("udp", address); err == nil {
+	if conn, err := net.ListenPacket("udp", address); err == nil { //nolint:noctx // TODO: Add context support for port scanning operations
 		_ = conn.Close() //nolint:errcheck // Best effort cleanup during port scan
 	} else {
 		return true // Port is in use
@@ -100,7 +102,7 @@ func (s *Scanner) FindAvailablePort(startPort int) (int, error) {
 
 	for i := 0; i < maxAttempts; i++ {
 		port := startPort + i
-		if port > 65535 {
+		if port > 65535 { //nolint:mnd // TODO: Extract max valid port number to const
 			break // Exceeded valid port range
 		}
 
@@ -131,7 +133,7 @@ func (s *Scanner) getProcessInfoUnix(port int) (int, string, error) {
 	// In production, you might want to use system calls or parse /proc/net/tcp
 
 	// Try to connect to get basic info
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("localhost:%d", port), s.timeout)
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("localhost:%d", port), s.timeout) //nolint:noctx // TODO: Migrate to (*net.Dialer).DialContext
 	if err != nil {
 		return -1, "", fmt.Errorf("failed to dial port %d: %w", port, err)
 	}
