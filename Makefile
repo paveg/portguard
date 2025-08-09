@@ -163,7 +163,7 @@ deps-check:
 # Security scan
 security:
 	@echo "Running security scan..."
-	@which gosec > /dev/null || (echo "Installing gosec..." && go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest)
+	@which gosec > /dev/null || (echo "Installing gosec..." && go install github.com/securego/gosec/v2/cmd/gosec@latest)
 	gosec ./...
 
 # Help
