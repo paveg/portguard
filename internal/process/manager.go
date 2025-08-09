@@ -53,12 +53,12 @@ func NewProcessManager(stateStore StateStore, lockManager LockManager, portScann
 		lockManager: lockManager,
 		portScanner: portScanner,
 	}
-	
+
 	// Load existing processes from storage
 	if loadedProcesses, err := stateStore.Load(); err == nil {
 		pm.processes = loadedProcesses
 	}
-	
+
 	return pm
 }
 
@@ -72,14 +72,14 @@ func (pm *ProcessManager) generateID(command string) string {
 func (pm *ProcessManager) ShouldStartNew(command string, port int) (bool, *ManagedProcess) {
 	pm.mutex.RLock()
 	defer pm.mutex.RUnlock()
-	
+
 	// 1. Check if exact command is already running
 	for _, process := range pm.processes {
 		if process.Command == command && process.IsHealthy() {
 			return false, process // Reuse existing healthy process
 		}
 	}
-	
+
 	// 2. Check port availability if specified
 	if port > 0 {
 		if pm.portScanner.IsPortInUse(port) {
@@ -92,7 +92,7 @@ func (pm *ProcessManager) ShouldStartNew(command string, port int) (bool, *Manag
 			return false, nil // Port occupied by external process
 		}
 	}
-	
+
 	// 3. Safe to start new process
 	return true, nil
 }
@@ -103,7 +103,7 @@ func (pm *ProcessManager) StartProcess(command string, args []string, options St
 		return nil, fmt.Errorf("failed to acquire lock: %w", err)
 	}
 	defer func() { _ = pm.lockManager.Unlock() }() //nolint:errcheck // Defer unlock completes regardless
-	
+
 	// Check if we should start a new process
 	shouldStart, existing := pm.ShouldStartNew(command, options.Port)
 	if !shouldStart {
@@ -112,7 +112,7 @@ func (pm *ProcessManager) StartProcess(command string, args []string, options St
 		}
 		return nil, fmt.Errorf("%w: %d", ErrPortAlreadyInUse, options.Port)
 	}
-	
+
 	// Create new managed process
 	process := &ManagedProcess{
 		ID:          pm.generateID(command),
@@ -128,22 +128,22 @@ func (pm *ProcessManager) StartProcess(command string, args []string, options St
 		WorkingDir:  options.WorkingDir,
 		LogFile:     options.LogFile,
 	}
-	
+
 	// TODO: Actually start the process here
 	// For now, just mark it as running
 	process.Status = StatusRunning
 	process.PID = 12345 // Placeholder
-	
+
 	// Store the process
 	pm.mutex.Lock()
 	pm.processes[process.ID] = process
 	pm.mutex.Unlock()
-	
+
 	// Persist to storage
 	if err := pm.stateStore.Save(pm.processes); err != nil {
 		return nil, fmt.Errorf("failed to save state: %w", err)
 	}
-	
+
 	return process, nil
 }
 
@@ -153,19 +153,19 @@ func (pm *ProcessManager) StopProcess(id string, _ bool) error {
 		return fmt.Errorf("failed to acquire lock: %w", err)
 	}
 	defer func() { _ = pm.lockManager.Unlock() }() //nolint:errcheck // Defer unlock completes regardless
-	
+
 	pm.mutex.Lock()
 	process, exists := pm.processes[id]
 	if !exists {
 		pm.mutex.Unlock()
 		return fmt.Errorf("%w: %s", ErrProcessNotFound, id)
 	}
-	
+
 	// TODO: Actually stop the process here
 	process.Status = StatusStopped
 	process.UpdatedAt = time.Now()
 	pm.mutex.Unlock()
-	
+
 	// Persist to storage
 	if err := pm.stateStore.Save(pm.processes); err != nil {
 		return fmt.Errorf("failed to save process state: %w", err)
@@ -177,7 +177,7 @@ func (pm *ProcessManager) StopProcess(id string, _ bool) error {
 func (pm *ProcessManager) GetProcess(id string) (*ManagedProcess, bool) {
 	pm.mutex.RLock()
 	defer pm.mutex.RUnlock()
-	
+
 	process, exists := pm.processes[id]
 	return process, exists
 }
@@ -186,21 +186,21 @@ func (pm *ProcessManager) GetProcess(id string) (*ManagedProcess, bool) {
 func (pm *ProcessManager) ListProcesses(options ProcessListOptions) []*ManagedProcess {
 	pm.mutex.RLock()
 	defer pm.mutex.RUnlock()
-	
+
 	var result []*ManagedProcess
 	for _, process := range pm.processes {
 		// Apply filters
 		if !options.IncludeStopped && !process.IsRunning() {
 			continue
 		}
-		
+
 		if options.FilterByPort > 0 && process.Port != options.FilterByPort {
 			continue
 		}
-		
+
 		result = append(result, process)
 	}
-	
+
 	return result
 }
 
@@ -210,10 +210,10 @@ func (pm *ProcessManager) CleanupProcesses(force bool) error {
 		return fmt.Errorf("failed to acquire lock: %w", err)
 	}
 	defer func() { _ = pm.lockManager.Unlock() }() //nolint:errcheck // Defer unlock completes regardless
-	
+
 	pm.mutex.Lock()
 	defer pm.mutex.Unlock()
-	
+
 	var toRemove []string
 	for id, process := range pm.processes {
 		if force || process.Status == StatusStopped || process.Status == StatusFailed {
@@ -221,11 +221,11 @@ func (pm *ProcessManager) CleanupProcesses(force bool) error {
 			toRemove = append(toRemove, id)
 		}
 	}
-	
+
 	for _, id := range toRemove {
 		delete(pm.processes, id)
 	}
-	
+
 	if err := pm.stateStore.Save(pm.processes); err != nil {
 		return fmt.Errorf("failed to save process state: %w", err)
 	}

@@ -9,7 +9,6 @@ import (
 )
 
 var (
-
 	rootCmd = &cobra.Command{
 		Use:   "portguard",
 		Short: "AI-aware process management tool",

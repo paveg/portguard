@@ -2,8 +2,8 @@
 #
 # Test script for Portguard Claude Code hooks
 #
-# This script tests both PreToolUse and PostToolUse hooks to ensure
-# they work correctly before deploying to Claude Code.
+# This script tests both PreToolUse and PostToolUse hooks using the official
+# Claude Code hooks format to ensure they work correctly.
 
 set -euo pipefail
 
@@ -44,12 +44,12 @@ log_warning() {
     echo -e "${YELLOW}[WARN]${NC} $*"
 }
 
-# Test function
-run_test() {
+# Test function for PreToolUse hook
+run_pretooluse_test() {
     local test_name="$1"
     local hook_script="$2"
     local input_json="$3"
-    local expected_action="${4:-}"
+    local expected_proceed="${4:-true}"
     
     log_info "Running test: $test_name"
     
@@ -62,15 +62,60 @@ run_test() {
     # Run the hook with test input
     local output
     if output=$(echo "$input_json" | "$hook_script" 2>/dev/null); then
-        if [[ -n "$expected_action" ]]; then
-            # Check if output contains expected action for PreToolUse hooks
-            if echo "$output" | jq -e --arg action "$expected_action" '.action == $action' >/dev/null 2>&1; then
-                log_success "$test_name - Action: $expected_action"
+        if [[ -n "$expected_proceed" ]]; then
+            # Check if output contains expected proceed value
+            local actual_proceed
+            actual_proceed=$(echo "$output" | jq -r '.proceed // "null"' 2>/dev/null)
+            
+            if [[ "$actual_proceed" == "$expected_proceed" ]]; then
+                log_success "$test_name - Proceed: $expected_proceed"
             else
-                log_error "$test_name - Expected action: $expected_action, got: $(echo "$output" | jq -r '.action // "none"')"
+                log_error "$test_name - Expected proceed: $expected_proceed, got: $actual_proceed"
             fi
         else
-            # For PostToolUse hooks, just check if they run without error
+            # Just check if it runs without error
+            log_success "$test_name - Executed without error"
+        fi
+        
+        # Pretty print the output for inspection
+        echo "$output" | jq . 2>/dev/null || echo "$output"
+        echo
+    else
+        log_error "$test_name - Hook execution failed"
+        return 1
+    fi
+}
+
+# Test function for PostToolUse hook
+run_posttooluse_test() {
+    local test_name="$1"
+    local hook_script="$2"
+    local input_json="$3"
+    local expected_status="${4:-success}"
+    
+    log_info "Running test: $test_name"
+    
+    # Check if hook script exists and is executable
+    if [[ ! -x "$hook_script" ]]; then
+        log_error "Hook script not found or not executable: $hook_script"
+        return 1
+    fi
+    
+    # Run the hook with test input
+    local output
+    if output=$(echo "$input_json" | "$hook_script" 2>/dev/null); then
+        if [[ -n "$expected_status" ]]; then
+            # Check if output contains expected status
+            local actual_status
+            actual_status=$(echo "$output" | jq -r '.status // "null"' 2>/dev/null)
+            
+            if [[ "$actual_status" == "$expected_status" ]]; then
+                log_success "$test_name - Status: $expected_status"
+            else
+                log_error "$test_name - Expected status: $expected_status, got: $actual_status"
+            fi
+        else
+            # Just check if it runs without error
             log_success "$test_name - Executed without error"
         fi
         
@@ -109,34 +154,37 @@ main() {
     echo "----------------------------------------"
     
     # Test 1: Server command detection (should allow)
-    run_test "Server Command Detection" "$PRETOOLUSE_HOOK" '{
+    run_pretooluse_test "Server Command Detection" "$PRETOOLUSE_HOOK" '{
+        "event": "preToolUse",
         "tool_name": "Bash",
         "parameters": {
             "command": "npm run dev --port 3000"
         },
         "session_id": "test123",
         "working_dir": "/tmp/test"
-    }' "allow"
+    }' "true"
     
     # Test 2: Non-server command (should allow)
-    run_test "Non-Server Command" "$PRETOOLUSE_HOOK" '{
+    run_pretooluse_test "Non-Server Command" "$PRETOOLUSE_HOOK" '{
+        "event": "preToolUse",
         "tool_name": "Bash", 
         "parameters": {
             "command": "ls -la"
         },
         "session_id": "test123",
         "working_dir": "/tmp/test"
-    }' "allow"
+    }' "true"
     
     # Test 3: Non-Bash tool (should allow)
-    run_test "Non-Bash Tool" "$PRETOOLUSE_HOOK" '{
+    run_pretooluse_test "Non-Bash Tool" "$PRETOOLUSE_HOOK" '{
+        "event": "preToolUse",
         "tool_name": "Read",
         "parameters": {
             "file_path": "/tmp/test.txt"
         },
         "session_id": "test123",
         "working_dir": "/tmp/test"
-    }' "allow"
+    }' "true"
     
     # Test 4: Different server commands
     local server_commands=(
@@ -150,14 +198,15 @@ main() {
     )
     
     for cmd in "${server_commands[@]}"; do
-        run_test "Server Command: $cmd" "$PRETOOLUSE_HOOK" "{
+        run_pretooluse_test "Server Command: $cmd" "$PRETOOLUSE_HOOK" "{
+            \"event\": \"preToolUse\",
             \"tool_name\": \"Bash\",
             \"parameters\": {
                 \"command\": \"$cmd\"
             },
             \"session_id\": \"test123\",
             \"working_dir\": \"/tmp/test\"
-        }" "allow"
+        }" "true"
     done
     
     echo
@@ -167,7 +216,8 @@ main() {
     echo "----------------------------------------"
     
     # Test 1: Successful server startup
-    run_test "Successful Server Startup" "$POSTTOOLUSE_HOOK" '{
+    run_posttooluse_test "Successful Server Startup" "$POSTTOOLUSE_HOOK" '{
+        "event": "postToolUse",
         "tool_name": "Bash",
         "parameters": {
             "command": "npm run dev"
@@ -179,10 +229,11 @@ main() {
         },
         "session_id": "test123",
         "working_dir": "/tmp/test"
-    }'
+    }' "success"
     
     # Test 2: Failed command
-    run_test "Failed Command" "$POSTTOOLUSE_HOOK" '{
+    run_posttooluse_test "Failed Command" "$POSTTOOLUSE_HOOK" '{
+        "event": "postToolUse",
         "tool_name": "Bash",
         "parameters": {
             "command": "npm run dev"
@@ -194,10 +245,11 @@ main() {
         },
         "session_id": "test123",
         "working_dir": "/tmp/test"
-    }'
+    }' "success"
     
     # Test 3: Non-server command success
-    run_test "Non-Server Command Success" "$POSTTOOLUSE_HOOK" '{
+    run_posttooluse_test "Non-Server Command Success" "$POSTTOOLUSE_HOOK" '{
+        "event": "postToolUse",
         "tool_name": "Bash",
         "parameters": {
             "command": "echo hello world"
@@ -209,7 +261,32 @@ main() {
         },
         "session_id": "test123",
         "working_dir": "/tmp/test"
-    }'
+    }' "success"
+    
+    # Test 4: Different server startup outputs
+    local server_outputs=(
+        "Server running on http://localhost:3000"
+        "🚀 Server ready at http://localhost:8080"
+        "Flask application running on port 5000"
+        "Listening on 0.0.0.0:4000"
+    )
+    
+    for output in "${server_outputs[@]}"; do
+        run_posttooluse_test "Server Output: ${output:0:30}..." "$POSTTOOLUSE_HOOK" "{
+            \"event\": \"postToolUse\",
+            \"tool_name\": \"Bash\",
+            \"parameters\": {
+                \"command\": \"npm run dev\"
+            },
+            \"result\": {
+                \"success\": true,
+                \"output\": \"$output\",
+                \"exit_code\": 0
+            },
+            \"session_id\": \"test123\",
+            \"working_dir\": \"/tmp/test\"
+        }" "success"
+    done
     
     echo
     
@@ -230,6 +307,15 @@ main() {
     else
         log_error "PostToolUse does not handle empty input gracefully"
     fi
+    
+    # Test malformed event type
+    run_pretooluse_test "Invalid Event Type" "$PRETOOLUSE_HOOK" '{
+        "event": "invalidEvent",
+        "tool_name": "Bash",
+        "parameters": {
+            "command": "npm run dev"
+        }
+    }' "true"
     
     echo
     

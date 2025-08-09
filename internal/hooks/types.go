@@ -17,14 +17,14 @@ type Template struct {
 
 // HookDefinition defines a specific hook (PreToolUse, PostToolUse, etc.)
 type HookDefinition struct {
-	Name         string            `json:"name"`         // e.g., "preToolUse"
-	Type         HookType          `json:"type"`         // PreToolUse, PostToolUse, etc.
-	Script       string            `json:"script"`       // Embedded script content
-	Timeout      time.Duration     `json:"timeout"`      // Execution timeout
-	FailureMode  FailureMode       `json:"failure_mode"` // How to handle failures
-	Environment  map[string]string `json:"environment"`  // Environment variables
-	Enabled      bool              `json:"enabled"`      // Whether hook is enabled
-	Description  string            `json:"description"`  // Hook description
+	Name        string            `json:"name"`         // e.g., "preToolUse"
+	Type        HookType          `json:"type"`         // PreToolUse, PostToolUse, etc.
+	Script      string            `json:"script"`       // Embedded script content
+	Timeout     time.Duration     `json:"timeout"`      // Execution timeout
+	FailureMode FailureMode       `json:"failure_mode"` // How to handle failures
+	Environment map[string]string `json:"environment"`  // Environment variables
+	Enabled     bool              `json:"enabled"`      // Whether hook is enabled
+	Description string            `json:"description"`  // Hook description
 }
 
 // HookType represents the type of hook event
@@ -65,14 +65,14 @@ type InstallConfig struct {
 
 // InstallResult contains the result of hook installation
 type InstallResult struct {
-	Success      bool              `json:"success"`
-	Template     string            `json:"template"`
-	InstalledAt  time.Time         `json:"installed_at"`
-	ConfigPath   string            `json:"config_path"`
-	HooksCreated []string          `json:"hooks_created"`
-	ConfigUpdated bool             `json:"config_updated"`
-	Messages     []string          `json:"messages,omitempty"`
-	Warnings     []string          `json:"warnings,omitempty"`
+	Success       bool      `json:"success"`
+	Template      string    `json:"template"`
+	InstalledAt   time.Time `json:"installed_at"`
+	ConfigPath    string    `json:"config_path"`
+	HooksCreated  []string  `json:"hooks_created"`
+	ConfigUpdated bool      `json:"config_updated"`
+	Messages      []string  `json:"messages,omitempty"`
+	Warnings      []string  `json:"warnings,omitempty"`
 }
 
 // UpdateConfig configures hook updates
@@ -83,12 +83,12 @@ type UpdateConfig struct {
 
 // UpdateResult contains the result of hook updates
 type UpdateResult struct {
-	Success       bool      `json:"success"`
-	UpdatedAt     time.Time `json:"updated_at"`
-	PreviousVersion string  `json:"previous_version"`
-	NewVersion    string    `json:"new_version"`
-	HooksUpdated  []string  `json:"hooks_updated"`
-	Messages      []string  `json:"messages,omitempty"`
+	Success         bool      `json:"success"`
+	UpdatedAt       time.Time `json:"updated_at"`
+	PreviousVersion string    `json:"previous_version"`
+	NewVersion      string    `json:"new_version"`
+	HooksUpdated    []string  `json:"hooks_updated"`
+	Messages        []string  `json:"messages,omitempty"`
 }
 
 // RemoveConfig configures hook removal
@@ -100,11 +100,11 @@ type RemoveConfig struct {
 
 // RemoveResult contains the result of hook removal
 type RemoveResult struct {
-	Success      bool      `json:"success"`
-	RemovedAt    time.Time `json:"removed_at"`
-	HooksRemoved []string  `json:"hooks_removed"`
-	ConfigCleaned bool     `json:"config_cleaned"`
-	Messages     []string  `json:"messages,omitempty"`
+	Success       bool      `json:"success"`
+	RemovedAt     time.Time `json:"removed_at"`
+	HooksRemoved  []string  `json:"hooks_removed"`
+	ConfigCleaned bool      `json:"config_cleaned"`
+	Messages      []string  `json:"messages,omitempty"`
 }
 
 // ListResult contains the result of listing templates/hooks
@@ -125,15 +125,15 @@ type InstalledHook struct {
 
 // StatusResult contains hook installation status
 type StatusResult struct {
-	Installed      bool     `json:"installed"`
-	Version        string   `json:"version,omitempty"`
-	Template       string   `json:"template,omitempty"`
-	ConfigPath     string   `json:"config_path,omitempty"`
-	HooksActive    []string `json:"hooks_active,omitempty"`
-	DependenciesOK bool     `json:"dependencies_ok"`
-	MissingDeps    []string `json:"missing_deps,omitempty"`
+	Installed      bool      `json:"installed"`
+	Version        string    `json:"version,omitempty"`
+	Template       string    `json:"template,omitempty"`
+	ConfigPath     string    `json:"config_path,omitempty"`
+	HooksActive    []string  `json:"hooks_active,omitempty"`
+	DependenciesOK bool      `json:"dependencies_ok"`
+	MissingDeps    []string  `json:"missing_deps,omitempty"`
 	LastChecked    time.Time `json:"last_checked"`
-	Messages       []string `json:"messages,omitempty"`
+	Messages       []string  `json:"messages,omitempty"`
 }
 
 // ClaudeCodeSettings represents Claude Code configuration structure
@@ -167,6 +167,6 @@ type PortguardConfig struct {
 type HookConfig struct {
 	Enabled     bool              `json:"enabled"`
 	Version     string            `json:"version"`
-	Customized  bool              `json:"customized"`  // Whether user has modified the hook
+	Customized  bool              `json:"customized"` // Whether user has modified the hook
 	Environment map[string]string `json:"environment,omitempty"`
 }

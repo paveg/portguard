@@ -11,14 +11,7 @@ run:
   issues-exit-code: 1
   # Include test files in analysis
   tests: true
-  # Skip generated files
-  skip-dirs:
-    - vendor
-    - bin
-    - build
-    - .git
-  # Go version for staticcheck
-  go: '1.23'
+  go: '1.24'
 
 output:
   # Output formats
@@ -201,8 +194,6 @@ linters:
 
     # Revive rules
     revive:
-      # Minimum confidence
-      min-confidence: 0.8
       rules:
         # Enable important rules
         - name: exported

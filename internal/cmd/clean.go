@@ -6,7 +6,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-
 var cleanCmd = &cobra.Command{
 	Use:   "clean",
 	Short: "Clean up all managed processes",
@@ -22,11 +21,11 @@ Examples:
 		} else {
 			fmt.Println("Cleaning up all managed processes...")
 		}
-		
+
 		if force {
 			fmt.Println("Force cleanup enabled")
 		}
-		
+
 		// TODO: Implement actual cleanup logic
 		fmt.Println("Cleanup not yet implemented")
 	},
@@ -34,7 +33,7 @@ Examples:
 
 func init() {
 	rootCmd.AddCommand(cleanCmd)
-	
+
 	cleanCmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would be cleaned without actually doing it")
 	cleanCmd.Flags().BoolVarP(&force, "force", "f", false, "force cleanup without confirmation")
 }

@@ -1,325 +1,409 @@
 # Claude Code Integration Guide
 
-Portguard integrates seamlessly with Claude Code to provide intelligent process management during AI-assisted development sessions. This prevents duplicate server startups and port conflicts when working with AI development tools.
+This guide explains how to integrate Portguard with Claude Code using the official hooks specification.
 
 ## Overview
 
-The integration uses Claude Code's hooks system to:
+Portguard provides seamless integration with Claude Code through hooks that:
 
-1. **PreToolUse Hook**: Intercepts commands before execution to detect potential server startups and prevent conflicts
-2. **PostToolUse Hook**: Registers successfully started processes in portguard's state management
+- **Prevent duplicate server processes** before they start
+- **Register successful server startups** for future conflict detection
+- **Use official Claude Code hooks format** for maximum compatibility
 
-## Prerequisites
+## Quick Installation
 
-1. **Portguard**: Install portguard and ensure it's available in your PATH
-   ```bash
-   go install github.com/paveg/portguard/cmd/portguard@latest
-   ```
-
-2. **jq**: Required for JSON parsing in hook scripts
-   ```bash
-   # macOS
-   brew install jq
-   
-   # Ubuntu/Debian
-   sudo apt-get install jq
-   
-   # Other platforms: https://jqlang.github.io/jq/download/
-   ```
-
-3. **Claude Code**: Ensure you have Claude Code installed and configured
-
-## Installation
-
-### 1. Copy Hook Scripts
-
-Copy the hook scripts to a directory accessible by Claude Code:
+### One-Command Setup (Recommended)
 
 ```bash
-# Create hooks directory (choose a location that suits your setup)
-mkdir -p ~/.config/claude-code/hooks
+# Install with default settings
+portguard hooks install
 
-# Copy the hook scripts
+# Choose a specific template
+portguard hooks install basic     # Simple conflict prevention
+portguard hooks install advanced  # Health monitoring + lifecycle
+portportguard hooks install developer # Full workflow optimization
+```
+
+This will:
+
+1. Create hook scripts in `~/.config/claude-code/hooks/`
+2. Update your Claude Code `settings.json`
+3. Configure environment variables
+4. Set up proper permissions
+
+### Verify Installation
+
+```bash
+# Check installation status
+portguard hooks status
+
+# List installed hooks
+portguard hooks list
+
+# Test the hooks
+echo '{"event":"preToolUse","tool_name":"Bash","parameters":{"command":"npm run dev"}}' | \
+  ~/.config/claude-code/hooks/pretooluse.sh
+```
+
+## Manual Installation
+
+If you prefer manual setup or need customization:
+
+### Step 1: Copy Hook Scripts
+
+```bash
+mkdir -p ~/.config/claude-code/hooks
 cp hooks/pretooluse.sh ~/.config/claude-code/hooks/
 cp hooks/posttooluse.sh ~/.config/claude-code/hooks/
-
-# Ensure scripts are executable
 chmod +x ~/.config/claude-code/hooks/*.sh
 ```
 
-### 2. Configure Claude Code Hooks
+### Step 2: Configure Claude Code Settings
 
-Add the following to your Claude Code settings (`.claude/settings.json` or `.claude/settings.local.json`):
+Edit `~/.config/claude-code/settings.json`:
 
 ```json
 {
-  "hooks": {
-    "preToolUse": {
-      "enabled": true,
-      "command": "~/.config/claude-code/hooks/pretooluse.sh",
-      "timeout": 10000,
-      "failureHandling": "allow"
-    },
-    "postToolUse": {
-      "enabled": true, 
-      "command": "~/.config/claude-code/hooks/posttooluse.sh",
-      "timeout": 5000,
-      "failureHandling": "ignore"
+  "$schema": "https://schema.anthropic.com/claude-code/settings.json",
+  "hooks": [
+    {
+      "matchers": [
+        {
+          "tool": "Bash"
+        }
+      ],
+      "hooks": [
+        {
+          "event": "preToolUse",
+          "command": "~/.config/claude-code/hooks/pretooluse.sh",
+          "timeout": 10000,
+          "failureHandling": "allow",
+          "description": "Prevent duplicate server processes",
+          "environment": {
+            "PORTGUARD_BIN": "portguard"
+          }
+        },
+        {
+          "event": "postToolUse",
+          "command": "~/.config/claude-code/hooks/posttooluse.sh",
+          "timeout": 5000,
+          "failureHandling": "ignore",
+          "description": "Register successful server startups",
+          "environment": {
+            "PORTGUARD_BIN": "portguard"
+          }
+        }
+      ]
     }
-  },
-  "tools": {
-    "bash": {
-      "enabled": true
-    }
+  ]
+}
+```
+
+### Step 3: Test the Integration
+
+Test PreToolUse hook:
+
+```bash
+echo '{"event":"preToolUse","tool_name":"Bash","parameters":{"command":"npm run dev"}}' | \
+  ~/.config/claude-code/hooks/pretooluse.sh
+```
+
+Expected output:
+
+```json
+{
+  "proceed": true,
+  "message": "Server command allowed, no conflicts",
+  "data": {
+    "detected_port": 3000
   }
 }
 ```
 
-### 3. Environment Configuration
-
-Set up environment variables for enhanced functionality:
+Test PostToolUse hook:
 
 ```bash
-# Add to your ~/.bashrc, ~/.zshrc, or similar
-export PORTGUARD_BIN="portguard"  # Path to portguard binary
-export PORTGUARD_DEBUG="1"       # Enable debug logging (optional)
+echo '{"event":"postToolUse","tool_name":"Bash","parameters":{"command":"npm run dev"},"result":{"success":true,"output":"Server listening on port 3000"}}' | \
+  ~/.config/claude-code/hooks/posttooluse.sh
+```
+
+Expected output:
+
+```json
+{
+  "status": "success",
+  "message": "Server registered on port 3000",
+  "data": {
+    "port": 3000
+  }
+}
 ```
 
 ## How It Works
 
 ### PreToolUse Hook Flow
 
-1. **Command Interception**: When Claude Code attempts to run a bash command, the PreToolUse hook intercepts it
-2. **Server Detection**: The hook analyzes the command to determine if it's a server startup command
-3. **Conflict Check**: If it's a server command, portguard checks for existing processes or port conflicts
-4. **Decision**: The hook returns a decision:
-   - `allow`: Command can proceed normally
-   - `block`: Command is blocked due to conflicts
-   - `modify`: Command is modified to resolve conflicts (future feature)
+1. **Hook Triggered**: Claude Code calls the PreToolUse hook before executing any Bash command
+2. **Command Analysis**: Hook analyzes the command to detect server startup patterns
+3. **Conflict Check**: If it's a server command, check for existing processes on the same port
+4. **Response**: Return JSON with `proceed: true/false` and explanation
+
+```mermaid
+graph TD
+    A[Claude Code Bash Command] --> B[PreToolUse Hook]
+    B --> C{Server Command?}
+    C -->|No| D[Allow: proceed=true]
+    C -->|Yes| E[Check for Conflicts]
+    E --> F{Port Conflict?}
+    F -->|No| G[Allow: proceed=true]
+    F -->|Yes| H[Block: proceed=false]
+```
 
 ### PostToolUse Hook Flow
 
-1. **Result Analysis**: After a command executes, the hook analyzes the output and exit code
-2. **Success Detection**: If the command appears to have successfully started a server, it's registered
-3. **Process Registration**: The process is added to portguard's state management with:
-   - Command that was executed
-   - Detected port number
-   - Working directory
-   - Timestamp information
+1. **Hook Triggered**: Claude Code calls the PostToolUse hook after command execution
+2. **Success Check**: Only process successful commands
+3. **Output Analysis**: Parse command output for server startup messages
+4. **Registration**: Register detected servers with Portguard for future conflict detection
 
-## Supported Server Commands
+```mermaid
+graph TD
+    A[Command Executed] --> B[PostToolUse Hook]
+    B --> C{Command Successful?}
+    C -->|No| D[Return: status=success]
+    C -->|Yes| E{Server Command?}
+    E -->|No| F[Return: status=success]
+    E -->|Yes| G[Parse Output for Port]
+    G --> H{Port Detected?}
+    H -->|No| I[Return: status=success]
+    H -->|Yes| J[Register with Portguard]
+    J --> K[Return: status=success + port info]
+```
 
-Portguard automatically detects these common development server patterns:
+## Server Command Detection
+
+Portguard automatically detects common server startup patterns:
 
 ### Node.js/JavaScript
-- `npm run dev`, `npm run start`, `npm run serve`
-- `yarn dev`, `yarn start`, `yarn serve`
-- `pnpm dev`, `pnpm start`, `pnpm serve`
-- `node server.js`, `node index.js`
-- `next dev`, `next start`
-- `vite`, `webpack-dev-server`
+
+```bash
+npm run dev
+npm start
+yarn dev
+yarn start
+pnpm dev
+next dev
+vite
+webpack-dev-server
+```
 
 ### Python
-- `python app.py`, `python server.py`
-- `flask run`
-- `django-admin runserver`, `python manage.py runserver`
-- `uvicorn`, `gunicorn`, `hypercorn`
+
+```bash
+python app.py
+flask run
+django-admin runserver
+uvicorn main:app
+gunicorn app:application
+```
 
 ### Go
-- `go run main.go`, `go run server.go`
-- `go run .`
+
+```bash
+go run main.go
+go run server.go
+```
 
 ### Ruby
-- `rails server`
 
-### Generic
-- `serve`, `http-server`, `live-server`
-- Commands with `--port` or `-p` flags
-- Commands containing `localhost:PORT` patterns
+```bash
+rails server
+rails s
+```
+
+### Port Detection
+
+Ports are detected from:
+
+1. **Command flags**: `--port 3000`, `-p 8080`
+2. **Command output**: "Server listening on port 3000"
+3. **Default ports**: Framework-specific defaults (Next.js → 3000, Vite → 5173, Flask → 5000)
 
 ## Configuration Options
 
-### Hook Script Configuration
+### Environment Variables
 
-You can customize the hook behavior using environment variables:
+Set in your shell or Claude Code settings:
 
 ```bash
-# Portguard binary location
-export PORTGUARD_BIN="/usr/local/bin/portguard"
-
-# Enable debug logging
-export PORTGUARD_DEBUG="1"
-
-# Custom timeout for portguard operations (in seconds)
-export PORTGUARD_TIMEOUT="10"
+export PORTGUARD_BIN="portguard"          # Path to portguard binary
+export PORTGUARD_DEBUG="1"                # Enable debug logging
+export PORTGUARD_CONFIG="~/.portguard.yml" # Custom config file
 ```
 
-### Claude Code Settings
+### Hook Configuration
 
-Customize hook behavior in your Claude Code settings:
+Customize timeout and failure handling in `settings.json`:
 
 ```json
 {
-  "hooks": {
-    "preToolUse": {
-      "enabled": true,
-      "command": "~/.config/claude-code/hooks/pretooluse.sh",
-      "timeout": 10000,
-      "failureHandling": "allow",  // "allow" | "block" | "warn"
-      "environment": {
-        "PORTGUARD_DEBUG": "1"
-      }
-    },
-    "postToolUse": {
-      "enabled": true,
-      "command": "~/.config/claude-code/hooks/posttooluse.sh", 
-      "timeout": 5000,
-      "failureHandling": "ignore"  // "ignore" | "warn" | "error"
-    }
+  "event": "preToolUse",
+  "command": "~/.config/claude-code/hooks/pretooluse.sh",
+  "timeout": 10000,           // 10 seconds timeout
+  "failureHandling": "allow", // allow|block|warn|ignore
+  "environment": {
+    "PORTGUARD_BIN": "portguard",
+    "PORTGUARD_DEBUG": "0"
   }
 }
 ```
 
-## Testing the Integration
+## Templates
 
-### 1. Test PreToolUse Hook
+Portguard provides three templates for different use cases:
 
-Test that the PreToolUse hook correctly intercepts commands:
+### Basic Template
 
-```bash
-# Test with a sample server command
-echo '{
-  "tool_name": "Bash",
-  "parameters": {
-    "command": "npm run dev --port 3000"
-  },
-  "session_id": "test123",
-  "working_dir": "/path/to/project"
-}' | ~/.config/claude-code/hooks/pretooluse.sh
-```
+- Simple server conflict prevention
+- Minimal overhead
+- Recommended for most users
 
-Expected output:
-```json
-{
-  "action": "allow",
-  "reason": "Server command detected, no conflicts found",
-  "process_info": {
-    "command_type": "server",
-    "detected_port": 3000,
-    "full_command": "npm run dev --port 3000"
-  }
-}
-```
+### Advanced Template  
 
-### 2. Test PostToolUse Hook
+- Health monitoring
+- Process lifecycle tracking
+- Detailed logging
+- Recommended for teams
 
-Test that the PostToolUse hook registers successful server starts:
+### Developer Template
 
-```bash
-# Test with a sample successful server startup
-echo '{
-  "tool_name": "Bash",
-  "parameters": {
-    "command": "npm run dev"
-  },
-  "result": {
-    "success": true,
-    "output": "Server listening on port 3000",
-    "exit_code": 0
-  },
-  "session_id": "test123",
-  "working_dir": "/path/to/project"
-}' | ~/.config/claude-code/hooks/posttooluse.sh
-```
-
-### 3. Verify Process Registration
-
-Check that the process was registered with portguard:
-
-```bash
-portguard list --json
-```
+- Full workflow optimization
+- Custom port management
+- Advanced debugging
+- Recommended for power users
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Hook not executing**
-   - Verify hook scripts are executable: `chmod +x ~/.config/claude-code/hooks/*.sh`
-   - Check Claude Code settings.json configuration
-   - Ensure hooks are in the correct path
+**1. Hooks not triggering**
 
-2. **jq command not found**
-   - Install jq: `brew install jq` (macOS) or `sudo apt-get install jq` (Ubuntu)
+- Check Claude Code version compatibility
+- Verify settings.json format
+- Ensure scripts are executable: `chmod +x ~/.config/claude-code/hooks/*.sh`
 
-3. **Portguard binary not found**
-   - Ensure portguard is in PATH: `which portguard`
-   - Set PORTGUARD_BIN environment variable to full path
+**2. "portguard not found" error**
 
-4. **Hook timeouts**
-   - Increase timeout values in Claude Code settings
-   - Check system performance and disk I/O
+- Add portguard to PATH: `export PATH="/path/to/portguard:$PATH"`
+- Or set full path: `"PORTGUARD_BIN": "/usr/local/bin/portguard"`
+
+**3. Permission denied**
+
+- Fix script permissions: `chmod +x ~/.config/claude-code/hooks/*.sh`
+- Check directory permissions: `ls -la ~/.config/claude-code/`
+
+**4. JSON parsing errors**
+
+- Install jq: `brew install jq` (macOS) or `apt-get install jq` (Ubuntu)
+- Verify jq installation: `jq --version`
 
 ### Debug Mode
 
-Enable debug logging to troubleshoot issues:
+Enable debug logging:
 
 ```bash
-export PORTGUARD_DEBUG="1"
+export PORTGUARD_DEBUG=1
 ```
 
-Debug information will be written to stderr and won't interfere with hook JSON output.
-
-### Manual Testing
-
-Test individual components:
+Check logs:
 
 ```bash
-# Test portguard intercept directly
-echo '{"command":"npm run dev","args":["--port","3000"]}' | portguard intercept
+# View recent hook activity
+tail -f ~/.config/claude-code/logs/hooks.log
 
-# Test hook scripts directly
-echo '{"tool_name":"Bash","parameters":{"command":"npm run dev"}}' | ~/.config/claude-code/hooks/pretooluse.sh
+# Test hooks manually
+echo '{"event":"preToolUse","tool_name":"Bash","parameters":{"command":"npm run dev"}}' | \
+  PORTGUARD_DEBUG=1 ~/.config/claude-code/hooks/pretooluse.sh
 ```
 
-## Security Considerations
+### Hook Status Check
 
-1. **Hook Scripts**: Store hook scripts in a secure location with appropriate permissions
-2. **Input Validation**: Hooks validate JSON input to prevent injection attacks  
-3. **Timeout Limits**: Hooks use timeouts to prevent hanging processes
-4. **Fail-Safe Behavior**: PreToolUse hook fails open (allows commands) if errors occur
+```bash
+# Comprehensive status check
+portguard hooks status
 
-## Advanced Configuration
+# List all hooks and templates
+portguard hooks list
 
-### Custom Port Detection
+# Check dependencies
+command -v jq && echo "jq: OK" || echo "jq: MISSING"
+command -v portguard && echo "portguard: OK" || echo "portguard: MISSING"
+```
 
-Extend port detection patterns by modifying the hook scripts or contributing to the portguard project.
+## Advanced Usage
+
+### Custom Hook Scripts
+
+You can customize the hook scripts for specific needs:
+
+```bash
+# Copy default scripts as templates
+cp ~/.config/claude-code/hooks/pretooluse.sh ~/.config/claude-code/hooks/my-pretooluse.sh
+
+# Edit for custom logic
+vim ~/.config/claude-code/hooks/my-pretooluse.sh
+
+# Update settings.json to use custom script
+```
 
 ### Integration with CI/CD
 
-The hooks can be configured to work in CI/CD environments:
+For automated environments:
 
-```json
-{
-  "hooks": {
-    "preToolUse": {
-      "enabled": true,
-      "environment": {
-        "PORTGUARD_CI_MODE": "1"
-      }
-    }
-  }
-}
+```yaml
+# .github/workflows/test.yml
+- name: Setup Portguard
+  run: |
+    # Install portguard
+    go install github.com/paveg/portguard@latest
+    
+    # Install hooks
+    portguard hooks install --config ci-config.json
+    
+    # Verify installation
+    portguard hooks status
 ```
 
-## Contributing
+### Multiple Projects
 
-To contribute improvements to the Claude Code integration:
+Different configurations per project:
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes to hook scripts or documentation
-4. Test thoroughly with various server types
-5. Submit a pull request
+```bash
+# Project-specific installation
+cd /path/to/project
+portguard hooks install --config .claude-code/settings.json
 
-For issues and feature requests, please use the [GitHub Issues](https://github.com/paveg/portguard/issues) page.
+# Use project-specific portguard config
+echo 'PORTGUARD_CONFIG="./.portguard.yml"' >> .env
+```
+
+## Migration from V1
+
+If you're migrating from an older version:
+
+```bash
+# Remove old V1 hooks
+rm ~/.config/claude-code/hooks/pretooluse_v1.sh
+rm ~/.config/claude-code/hooks/posttooluse_v1.sh
+
+# Install new hooks
+portguard hooks install
+
+# Update settings.json format (automatic)
+```
+
+## Support
+
+- **GitHub Issues**: <https://github.com/paveg/portguard/issues>
+- **Documentation**: <https://github.com/paveg/portguard/wiki>
+- **Examples**: <https://github.com/paveg/portguard/tree/main/examples>

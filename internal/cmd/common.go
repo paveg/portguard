@@ -17,16 +17,16 @@ var (
 
 // Common variables used across multiple commands
 var (
-	port         int
-	jsonOutput   bool
-	startPort    int
-	force        bool
-	dryRun       bool
-	showAll      bool
-	healthCheck  string
-	background   bool
-	verbose      bool
-	cfgFile      string
+	port        int
+	jsonOutput  bool
+	startPort   int
+	force       bool
+	dryRun      bool
+	showAll     bool
+	healthCheck string
+	background  bool
+	verbose     bool
+	cfgFile     string
 )
 
 // OutputHandler provides common output formatting
@@ -72,7 +72,7 @@ func (oh *OutputHandler) PrintError(msg string, err error) {
 	}
 }
 
-// PrintSuccess prints success message consistently  
+// PrintSuccess prints success message consistently
 func (oh *OutputHandler) PrintSuccess(msg string, data ...interface{}) {
 	if oh.JSONOutput {
 		result := map[string]interface{}{

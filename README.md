@@ -5,6 +5,7 @@ AI-aware process management tool designed to prevent duplicate server startups w
 ## Problem
 
 AI development tools often start servers without checking if they're already running, leading to:
+
 - Port conflicts and errors
 - Resource waste (multiple identical processes)
 - Development environment confusion
@@ -13,6 +14,7 @@ AI development tools often start servers without checking if they're already run
 ## Solution
 
 Portguard provides:
+
 - **Intelligent Duplicate Detection**: Automatically detects if the same command is already running
 - **Port Management**: Prevents port conflicts and suggests alternatives
 - **Process Reuse**: Reuses healthy existing processes instead of starting duplicates
@@ -45,7 +47,8 @@ portguard hooks install
 ```
 
 Choose from different templates:
-- **basic**: Simple server conflict prevention 
+
+- **basic**: Simple server conflict prevention
 - **advanced**: Health monitoring & lifecycle tracking
 - **developer**: Full workflow optimization
 
@@ -74,6 +77,31 @@ portguard stop 3000
 portguard clean
 ```
 
+## Commands
+
+### Core Commands
+
+- `portguard start <command>` - Start a new process or reuse existing one
+- `portguard stop <id|port>` - Stop a managed process  
+- `portguard list` - List all managed processes
+- `portguard status [id]` - Show process status and health information
+- `portguard clean` - Clean up all managed processes
+
+### Hook Commands
+
+- `portguard hooks install [template]` - Install Claude Code hooks
+- `portguard hooks status` - Check hook installation status
+- `portguard hooks list` - List available templates and installed hooks
+- `portguard hooks update` - Update installed hooks
+- `portguard hooks remove` - Remove installed hooks
+
+### Utility Commands
+
+- `portguard ports` - Show port usage information
+- `portguard health [id]` - Check health status of processes
+- `portguard check` - Quick status check (AI-friendly)
+- `portguard config` - Configuration management
+
 ### AI-Friendly Commands
 
 ```bash
@@ -87,7 +115,69 @@ portguard check --port 3000 --json
 portguard check --available --start 3000 --json
 ```
 
-### Configuration
+## Claude Code Integration
+
+Portguard seamlessly integrates with Claude Code using the official hooks specification:
+
+### How It Works
+
+1. **PreToolUse Hook**: Intercepts Bash commands before execution
+   - Detects server startup commands (`npm run dev`, `go run main.go`, etc.)
+   - Checks for existing processes on the same port
+   - Blocks duplicate servers or suggests alternatives
+
+2. **PostToolUse Hook**: Registers successful server startups
+   - Monitors command output for server startup messages
+   - Extracts port information from output
+   - Registers the process in Portguard for future conflict detection
+
+### Manual Installation
+
+If you prefer manual setup:
+
+1. Copy hook scripts:
+
+```bash
+mkdir -p ~/.config/claude-code/hooks
+cp hooks/*.sh ~/.config/claude-code/hooks/
+chmod +x ~/.config/claude-code/hooks/*.sh
+```
+
+2. Update Claude Code settings:
+
+```json
+{
+  "hooks": [
+    {
+      "matchers": [
+        {"tool": "Bash"}
+      ],
+      "hooks": [
+        {
+          "event": "preToolUse",
+          "command": "~/.config/claude-code/hooks/pretooluse.sh",
+          "timeout": 10000,
+          "failureHandling": "allow",
+          "environment": {
+            "PORTGUARD_BIN": "portguard"
+          }
+        },
+        {
+          "event": "postToolUse",
+          "command": "~/.config/claude-code/hooks/posttooluse.sh",
+          "timeout": 5000,
+          "failureHandling": "ignore",
+          "environment": {
+            "PORTGUARD_BIN": "portguard"
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+## Configuration
 
 ```bash
 # Initialize configuration file
@@ -96,25 +186,6 @@ portguard config init
 # Show current configuration
 portguard config show
 ```
-
-## Commands
-
-### Core Commands
-
-- `portguard start <command>` - Start a new process or reuse existing one
-- `portguard stop <id|port>` - Stop a managed process  
-- `portguard list` - List all managed processes
-- `portguard status [id]` - Show process status and health information
-- `portguard clean` - Clean up all managed processes
-
-### Utility Commands
-
-- `portguard ports` - Show port usage information
-- `portguard health [id]` - Check health status of processes
-- `portguard check` - Quick status check (AI-friendly)
-- `portguard config` - Configuration management
-
-## Configuration
 
 Portguard uses a YAML configuration file (`.portguard.yml`) for project-specific settings:
 
@@ -144,8 +215,6 @@ projects:
 
 ## AI Integration Examples
 
-### Claude Code Integration
-
 ```bash
 # Check if server is already running before starting
 if portguard check --port 3000 --json | jq -r '.port_in_use' = "false"; then
@@ -153,11 +222,7 @@ if portguard check --port 3000 --json | jq -r '.port_in_use' = "false"; then
 else
     echo "Server already running on port 3000"
 fi
-```
 
-### JSON API for Automated Tools
-
-```bash
 # Get status as JSON
 portguard check --json
 # Returns: {"portguard_running": true, "managed_processes": 2, ...}
@@ -170,66 +235,84 @@ portguard list --json
 ## Features
 
 ### Intelligent Duplicate Detection
+
 - ✅ Command-based process matching
 - ✅ Port conflict detection
 - ✅ Process health validation
 - ✅ Automatic reuse of healthy processes
 
 ### Health Monitoring
+
 - ✅ HTTP health checks
 - ✅ TCP connectivity checks  
 - ✅ Custom command checks
 - ✅ Automatic process recovery
 
 ### AI-Friendly Design
+
 - ✅ JSON output for all commands
 - ✅ Simple status check commands
 - ✅ Machine-readable error codes
 - ✅ Minimal configuration required
+- ✅ Official Claude Code hooks support
 
 ### Cross-Platform Support
+
 - ✅ Windows, macOS, Linux
 - ✅ Consistent behavior across platforms
 - ✅ Platform-specific optimizations
 
-## Development Status
-
-**Phase 1: Complete** ✅
-- [x] Project structure and CLI framework
-- [x] Core data structures  
-- [x] JSON state persistence
-- [x] File-based locking system
-- [x] Basic port scanning
-- [x] Configuration management
-
-**Phase 2: In Progress** 🚧
-- [ ] Process lifecycle management
-- [ ] Duplicate detection algorithm
-- [ ] Process reuse logic
-- [ ] Advanced port management
-
-**Phase 3: Planned** 📋
-- [ ] Health check implementation
-- [ ] Health monitoring system
-- [ ] Advanced CLI features
-- [ ] Auto-completion
-
-**Phase 4: Future** 🔮
-- [ ] Full AI integration
-- [ ] Performance optimization
-- [ ] Comprehensive testing
-- [ ] Documentation
-
 ## Architecture
 
-```
+```text
 ┌─────────────── CLI Layer ───────────────┐
-│ Commands: start|stop|list|status|clean  │
+│ Commands: start|stop|list|status|hooks  │
 ├─────────────── Core Layer ──────────────┤
 │ ProcessManager | PortScanner | Health   │
 ├─────────────── Storage Layer ───────────┤
 │ StateStore | ConfigManager | Lock       │
 └─────────────────────────────────────────┘
+```
+
+### Hook Integration Architecture
+
+```text
+Claude Code
+     ↓
+PreToolUse Hook (pretooluse.sh)
+     ↓
+portguard intercept
+     ↓
+Process Conflict Detection
+     ↓
+JSON Response (proceed: true/false)
+```
+
+## Testing
+
+### Test Hook Integration
+
+```bash
+# Test PreToolUse hook
+echo '{"event":"preToolUse","tool_name":"Bash","parameters":{"command":"npm run dev"}}' | \
+  ./hooks/pretooluse.sh
+
+# Test PostToolUse hook
+echo '{"event":"postToolUse","tool_name":"Bash","parameters":{"command":"npm run dev"},"result":{"success":true,"output":"Server on 3000"}}' | \
+  ./hooks/posttooluse.sh
+```
+
+### Run Test Suite
+
+```bash
+# Run hook tests
+./hooks/test_hooks.sh
+
+# Run Go tests
+go test ./...
+
+# Run linting
+golangci-lint run
 ```
 
 ## Contributing
@@ -246,5 +329,5 @@ MIT License - see LICENSE file for details.
 
 ## Support
 
-- GitHub Issues: https://github.com/paveg/portguard/issues
-- Documentation: https://github.com/paveg/portguard/wiki
+- [GitHub Issues](https://github.com/paveg/portguard/issues)
+- [Documentation](https://github.com/paveg/portguard/wiki)

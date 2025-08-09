@@ -25,7 +25,7 @@ or specified location. This creates a .portguard.yml file with sensible defaults
 		if configFile != "" {
 			configPath = configFile
 		}
-		
+
 		// Check if config already exists
 		if _, err := os.Stat(configPath); err == nil {
 			if !force {
@@ -33,7 +33,7 @@ or specified location. This creates a .portguard.yml file with sensible defaults
 				return
 			}
 		}
-		
+
 		// Create default configuration content
 		defaultConfig := `# Portguard Configuration
 # AI-aware process management tool
@@ -85,13 +85,13 @@ projects:
       target: "curl -f http://localhost:3002/status"
     log_file: "./logs/worker.log"
 `
-		
+
 		// Write configuration file atomically
 		if err := WriteFileAtomic(configPath, []byte(defaultConfig)); err != nil {
 			fmt.Printf("Error creating configuration file: %v\n", err)
 			return
 		}
-		
+
 		fmt.Printf("Configuration file created: %s\n", configPath)
 		fmt.Println("Edit this file to customize your project settings.")
 	},
@@ -104,7 +104,7 @@ var configShowCmd = &cobra.Command{
 	Run: func(_ *cobra.Command, _ []string) {
 		fmt.Println("Current Configuration:")
 		fmt.Printf("Config file: %s\n", viper.ConfigFileUsed())
-		
+
 		if jsonOutput {
 			// Output all configuration as JSON
 			allSettings := viper.AllSettings()
@@ -118,12 +118,12 @@ var configShowCmd = &cobra.Command{
 			fmt.Println("\nDefault Settings:")
 			fmt.Printf("  State file: %s\n", viper.GetString("default.state_file"))
 			fmt.Printf("  Lock file: %s\n", viper.GetString("default.lock_file"))
-			fmt.Printf("  Port range: %d-%d\n", 
+			fmt.Printf("  Port range: %d-%d\n",
 				viper.GetInt("default.port_range.start"),
 				viper.GetInt("default.port_range.end"))
 			fmt.Printf("  Health check enabled: %v\n", viper.GetBool("default.health_check.enabled"))
 			fmt.Printf("  Auto cleanup: %v\n", viper.GetBool("default.cleanup.auto_cleanup"))
-			
+
 			// Show project configurations
 			projects := viper.GetStringMap("projects")
 			if len(projects) > 0 {
@@ -148,10 +148,10 @@ func init() {
 	rootCmd.AddCommand(configCmd)
 	configCmd.AddCommand(configInitCmd)
 	configCmd.AddCommand(configShowCmd)
-	
+
 	configInitCmd.Flags().StringVar(&configFile, "file", "", "configuration file path")
 	configInitCmd.Flags().BoolVarP(&force, "force", "f", false, "overwrite existing configuration")
-	
+
 	configShowCmd.Flags().BoolVar(&jsonOutput, "json", false, "output in JSON format")
 }
 

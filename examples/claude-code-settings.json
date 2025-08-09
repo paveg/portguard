@@ -1,49 +1,52 @@
 {
   "$schema": "https://schema.anthropic.com/claude-code/settings.json",
-  "description": "Example Claude Code settings with Portguard hooks integration",
+  "description": "Claude Code settings with official hooks format",
   
-  "hooks": {
-    "preToolUse": {
-      "enabled": true,
-      "command": "~/.config/claude-code/hooks/pretooluse.sh",
-      "timeout": 10000,
-      "failureHandling": "allow",
-      "description": "Intercepts commands to prevent duplicate server startups",
-      "environment": {
-        "PORTGUARD_BIN": "portguard",
-        "PORTGUARD_DEBUG": "0"
-      }
-    },
-    "postToolUse": {
-      "enabled": true,
-      "command": "~/.config/claude-code/hooks/posttooluse.sh",
-      "timeout": 5000,
-      "failureHandling": "ignore",
-      "description": "Registers successfully started server processes",
-      "environment": {
-        "PORTGUARD_BIN": "portguard",
-        "PORTGUARD_DEBUG": "0"
-      }
+  "hooks": [
+    {
+      "matchers": [
+        {
+          "tool": "Bash"
+        }
+      ],
+      "hooks": [
+        {
+          "event": "preToolUse",
+          "command": "~/.config/claude-code/hooks/pretooluse.sh",
+          "timeout": 10000,
+          "failureHandling": "allow",
+          "description": "Prevent duplicate server processes",
+          "environment": {
+            "PORTGUARD_BIN": "portguard"
+          }
+        },
+        {
+          "event": "postToolUse",
+          "command": "~/.config/claude-code/hooks/posttooluse.sh",
+          "timeout": 5000,
+          "failureHandling": "ignore",
+          "description": "Register successful server startups",
+          "environment": {
+            "PORTGUARD_BIN": "portguard"
+          }
+        }
+      ]
     }
-  },
+  ],
   
   "tools": {
     "bash": {
       "enabled": true,
-      "timeout": 300000,
-      "description": "Enable bash tool for server management commands"
+      "timeout": 300000
     },
     "read": {
-      "enabled": true,
-      "description": "Enable file reading capabilities"
+      "enabled": true
     },
     "write": {
-      "enabled": true,
-      "description": "Enable file writing capabilities"
+      "enabled": true
     },
     "edit": {
-      "enabled": true,
-      "description": "Enable file editing capabilities"
+      "enabled": true
     }
   },
   
@@ -51,24 +54,5 @@
     "allowScriptExecution": true,
     "allowNetworkAccess": true,
     "allowFileSystemAccess": true
-  },
-  
-  "logging": {
-    "level": "info",
-    "enableHookLogging": true,
-    "hookLogPath": "~/.config/claude-code/logs/hooks.log"
-  },
-  
-  "ui": {
-    "showHookStatus": true,
-    "showProcessInfo": true
-  },
-  
-  "projectDefaults": {
-    "workingDirectory": ".",
-    "environment": {
-      "NODE_ENV": "development",
-      "PORTGUARD_PROJECT": "claude-code-session"
-    }
   }
 }

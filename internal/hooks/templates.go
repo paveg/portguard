@@ -15,7 +15,7 @@ func GetBuiltinTemplates() ([]Template, error) {
 		getAdvancedTemplate(),
 		getDeveloperTemplate(),
 	}
-	
+
 	return templates, nil
 }
 
@@ -25,25 +25,25 @@ func GetTemplate(name string) (*Template, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	for _, template := range templates {
 		if template.Name == name {
 			return &template, nil
 		}
 	}
-	
+
 	return nil, ErrTemplateNotFound
 }
 
 // getBasicTemplate returns the basic hook template
 func getBasicTemplate() Template {
 	return Template{
-		Name:        "basic",
-		Description: "Basic server conflict prevention for development workflows",
-		Version:     "1.0.0",
+		Name:         "basic",
+		Description:  "Basic server conflict prevention for development workflows",
+		Version:      "1.0.0",
 		Dependencies: []string{"jq", "portguard"},
 		Config: map[string]string{
-			"PORTGUARD_DEBUG": "0",
+			"PORTGUARD_DEBUG":   "0",
 			"PORTGUARD_TIMEOUT": "10",
 		},
 		Hooks: []HookDefinition{
@@ -93,7 +93,7 @@ func getAdvancedTemplate() Template {
 	advanced.Config["PORTGUARD_DEBUG"] = "1"
 	advanced.Config["PORTGUARD_TIMEOUT"] = "15"
 	advanced.Config["PORTGUARD_HEALTH_CHECK"] = "1"
-	
+
 	// Update hook configurations for advanced template
 	for i := range advanced.Hooks {
 		if advanced.Hooks[i].Name == "preToolUse" {
@@ -108,7 +108,7 @@ func getAdvancedTemplate() Template {
 			advanced.Hooks[i].Description = "Comprehensive process registration with health monitoring setup"
 		}
 	}
-	
+
 	return advanced
 }
 
@@ -123,7 +123,7 @@ func getDeveloperTemplate() Template {
 	developer.Config["PORTGUARD_TIMEOUT"] = "20"
 	developer.Config["PORTGUARD_AUTO_PORT"] = "1"
 	developer.Config["PORTGUARD_SMART_RESTART"] = "1"
-	
+
 	// Update hook configurations for developer template
 	for i := range developer.Hooks {
 		if developer.Hooks[i].Name == "preToolUse" {
@@ -138,7 +138,7 @@ func getDeveloperTemplate() Template {
 			developer.Hooks[i].Description = "Advanced process tracking with workflow optimization"
 		}
 	}
-	
+
 	return developer
 }
 

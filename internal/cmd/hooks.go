@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
 	"github.com/paveg/portguard/internal/hooks"
+	"github.com/spf13/cobra"
 )
 
 // hooksCmd represents the hooks management command
@@ -50,26 +50,26 @@ Examples:
   portguard hooks install advanced --dry-run`,
 	Run: func(cmd *cobra.Command, args []string) {
 		runner := NewCommandRunner(jsonOutput, dryRun)
-		
+
 		template := "basic"
 		if len(args) > 0 {
 			template = args[0]
 		}
-		
+
 		config := &hooks.InstallConfig{
 			Template:     template,
 			ClaudeConfig: claudeConfigPath,
 			DryRun:       dryRun,
 			Force:        force,
 		}
-		
+
 		installer := hooks.NewInstaller()
 		result, err := installer.Install(config)
 		if err != nil {
 			runner.OutputHandler.PrintError("Failed to install hooks", err)
 			return
 		}
-		
+
 		if jsonOutput {
 			if err := runner.OutputHandler.PrintJSON(result); err != nil {
 				runner.OutputHandler.PrintError("Failed to output result", err)
@@ -96,12 +96,12 @@ Options:
   --installed  Show only installed hooks`,
 	Run: func(cmd *cobra.Command, args []string) {
 		runner := NewCommandRunner(jsonOutput, false)
-		
+
 		manager := hooks.NewManager()
-		
+
 		var result interface{}
 		var err error
-		
+
 		if showTemplates {
 			result, err = manager.ListTemplates()
 		} else if showInstalled {
@@ -109,12 +109,12 @@ Options:
 		} else {
 			result, err = manager.ListAll()
 		}
-		
+
 		if err != nil {
 			runner.OutputHandler.PrintError("Failed to list hooks", err)
 			return
 		}
-		
+
 		if jsonOutput {
 			if err := runner.OutputHandler.PrintJSON(result); err != nil {
 				runner.OutputHandler.PrintError("Failed to output result", err)
@@ -139,18 +139,18 @@ This command:
 The update process is safe and maintains backwards compatibility.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		runner := NewCommandRunner(jsonOutput, dryRun)
-		
+
 		updater := hooks.NewUpdater()
 		result, err := updater.Update(&hooks.UpdateConfig{
 			DryRun: dryRun,
 			Force:  force,
 		})
-		
+
 		if err != nil {
 			runner.OutputHandler.PrintError("Failed to update hooks", err)
 			return
 		}
-		
+
 		if jsonOutput {
 			if err := runner.OutputHandler.PrintJSON(result); err != nil {
 				runner.OutputHandler.PrintError("Failed to output result", err)
@@ -175,19 +175,19 @@ This command:
 Use --force to skip confirmation prompts.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		runner := NewCommandRunner(jsonOutput, dryRun)
-		
+
 		remover := hooks.NewRemover()
 		result, err := remover.Remove(&hooks.RemoveConfig{
 			DryRun:         dryRun,
 			Force:          force,
 			PreserveConfig: !cleanAll,
 		})
-		
+
 		if err != nil {
 			runner.OutputHandler.PrintError("Failed to remove hooks", err)
 			return
 		}
-		
+
 		if jsonOutput {
 			if err := runner.OutputHandler.PrintJSON(result); err != nil {
 				runner.OutputHandler.PrintError("Failed to output result", err)
@@ -211,15 +211,15 @@ This command shows:
 - Configuration file locations and permissions`,
 	Run: func(cmd *cobra.Command, args []string) {
 		runner := NewCommandRunner(jsonOutput, false)
-		
+
 		checker := hooks.NewStatusChecker()
 		status, err := checker.Check()
-		
+
 		if err != nil {
 			runner.OutputHandler.PrintError("Failed to check hook status", err)
 			return
 		}
-		
+
 		if jsonOutput {
 			if err := runner.OutputHandler.PrintJSON(status); err != nil {
 				runner.OutputHandler.PrintError("Failed to output status", err)
@@ -247,7 +247,7 @@ func printHooksInfo(data interface{}) {
 		for _, template := range v.Templates {
 			fmt.Printf("  %s - %s\n", template.Name, template.Description)
 		}
-		
+
 		fmt.Println("\nInstalled Hooks:")
 		fmt.Println("================")
 		if len(v.Installed) == 0 {
@@ -266,7 +266,7 @@ func printHooksInfo(data interface{}) {
 func printHooksStatus(status *hooks.StatusResult) {
 	fmt.Println("Claude Code Hooks Status")
 	fmt.Println("========================")
-	
+
 	if status.Installed {
 		fmt.Printf("Status:       ✓ Installed\n")
 		fmt.Printf("Version:      %s\n", status.Version)
@@ -275,7 +275,7 @@ func printHooksStatus(status *hooks.StatusResult) {
 	} else {
 		fmt.Printf("Status:       ✗ Not Installed\n")
 	}
-	
+
 	fmt.Printf("Dependencies: ")
 	if status.DependenciesOK {
 		fmt.Printf("✓ OK\n")
@@ -289,36 +289,36 @@ func printHooksStatus(status *hooks.StatusResult) {
 
 func init() {
 	rootCmd.AddCommand(hooksCmd)
-	
+
 	// Add subcommands
 	hooksCmd.AddCommand(hooksInstallCmd)
 	hooksCmd.AddCommand(hooksListCmd)
 	hooksCmd.AddCommand(hooksUpdateCmd)
 	hooksCmd.AddCommand(hooksRemoveCmd)
 	hooksCmd.AddCommand(hooksStatusCmd)
-	
+
 	// Install command flags
 	hooksInstallCmd.Flags().StringVar(&claudeConfigPath, "claude-config", "", "Path to Claude Code configuration directory")
 	hooksInstallCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be installed without making changes")
 	hooksInstallCmd.Flags().BoolVar(&force, "force", false, "Force installation even if hooks already exist")
 	AddCommonJSONFlag(hooksInstallCmd)
-	
+
 	// List command flags
 	hooksListCmd.Flags().BoolVar(&showTemplates, "templates", false, "Show only available templates")
 	hooksListCmd.Flags().BoolVar(&showInstalled, "installed", false, "Show only installed hooks")
 	AddCommonJSONFlag(hooksListCmd)
-	
+
 	// Update command flags
 	hooksUpdateCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be updated without making changes")
 	hooksUpdateCmd.Flags().BoolVar(&force, "force", false, "Force update even if no changes detected")
 	AddCommonJSONFlag(hooksUpdateCmd)
-	
+
 	// Remove command flags
 	hooksRemoveCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be removed without making changes")
 	hooksRemoveCmd.Flags().BoolVar(&force, "force", false, "Skip confirmation prompts")
 	hooksRemoveCmd.Flags().BoolVar(&cleanAll, "clean-all", false, "Remove all configurations and customizations")
 	AddCommonJSONFlag(hooksRemoveCmd)
-	
+
 	// Status command flags
 	AddCommonJSONFlag(hooksStatusCmd)
 }

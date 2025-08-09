@@ -14,11 +14,11 @@ import (
 
 // Static error variables to satisfy err113 linter
 var (
-	ErrNoAvailablePort       = errors.New("no available port found")
-	ErrUnsupportedPlatform   = errors.New("unsupported platform")
-	ErrProcessInfoNotImpl    = errors.New("process info not implemented")
-	ErrInvalidPortRange      = errors.New("invalid port range format")
-	ErrPortRangeOrder        = errors.New("start port must be less than end port")
+	ErrNoAvailablePort     = errors.New("no available port found")
+	ErrUnsupportedPlatform = errors.New("unsupported platform")
+	ErrProcessInfoNotImpl  = errors.New("process info not implemented")
+	ErrInvalidPortRange    = errors.New("invalid port range format")
+	ErrPortRangeOrder      = errors.New("start port must be less than end port")
 )
 
 // Scanner implements PortScanner interface for cross-platform port scanning
@@ -37,21 +37,21 @@ func NewScanner(timeout time.Duration) *Scanner {
 func (s *Scanner) IsPortInUse(port int) bool {
 	// Try to bind to the port - if we can't, it's in use
 	address := fmt.Sprintf(":%d", port)
-	
+
 	// Check TCP
 	if listener, err := net.Listen("tcp", address); err == nil {
 		_ = listener.Close() //nolint:errcheck // Best effort cleanup during port scan
 	} else {
 		return true // Port is in use
 	}
-	
+
 	// Check UDP
 	if conn, err := net.ListenPacket("udp", address); err == nil {
 		_ = conn.Close() //nolint:errcheck // Best effort cleanup during port scan
 	} else {
 		return true // Port is in use
 	}
-	
+
 	return false
 }
 
@@ -64,25 +64,25 @@ func (s *Scanner) GetPortInfo(port int) (*process.PortInfo, error) {
 		IsManaged:   false,
 		Protocol:    "tcp",
 	}
-	
+
 	// Check if port is in use
 	if !s.IsPortInUse(port) {
 		return portInfo, nil // Port is available
 	}
-	
+
 	// Try to get process information using platform-specific methods
 	if pid, processName, err := s.getProcessInfoForPort(port); err == nil {
 		portInfo.PID = pid
 		portInfo.ProcessName = processName
 	}
-	
+
 	return portInfo, nil
 }
 
 // ScanRange scans a range of ports and returns information about ports in use
 func (s *Scanner) ScanRange(startPort, endPort int) ([]process.PortInfo, error) {
 	var result []process.PortInfo
-	
+
 	for port := startPort; port <= endPort; port++ {
 		if s.IsPortInUse(port) {
 			if portInfo, err := s.GetPortInfo(port); err == nil {
@@ -90,25 +90,25 @@ func (s *Scanner) ScanRange(startPort, endPort int) ([]process.PortInfo, error) 
 			}
 		}
 	}
-	
+
 	return result, nil
 }
 
 // FindAvailablePort finds the first available port starting from the given port
 func (s *Scanner) FindAvailablePort(startPort int) (int, error) {
 	maxAttempts := 1000 // Prevent infinite loops
-	
+
 	for i := 0; i < maxAttempts; i++ {
 		port := startPort + i
 		if port > 65535 {
 			break // Exceeded valid port range
 		}
-		
+
 		if !s.IsPortInUse(port) {
 			return port, nil
 		}
 	}
-	
+
 	return 0, fmt.Errorf("%w starting from %d", ErrNoAvailablePort, startPort)
 }
 
@@ -129,14 +129,14 @@ func (s *Scanner) getProcessInfoForPort(port int) (int, string, error) {
 func (s *Scanner) getProcessInfoUnix(port int) (int, string, error) {
 	// This is a simplified implementation
 	// In production, you might want to use system calls or parse /proc/net/tcp
-	
+
 	// Try to connect to get basic info
 	conn, err := net.DialTimeout("tcp", fmt.Sprintf("localhost:%d", port), s.timeout)
 	if err != nil {
 		return -1, "", fmt.Errorf("failed to dial port %d: %w", port, err)
 	}
 	defer func() { _ = conn.Close() }() //nolint:errcheck // Defer close always completes
-	
+
 	// For now, return placeholder values
 	// Real implementation would parse netstat or /proc/net/tcp
 	return -1, "unknown", fmt.Errorf("%w for Unix", ErrProcessInfoNotImpl)
@@ -153,7 +153,7 @@ func (s *Scanner) GetListeningPorts() ([]process.PortInfo, error) {
 	// This would typically scan common port ranges
 	// For now, scan common development ports
 	commonPorts := []int{3000, 3001, 3002, 3003, 4000, 4001, 5000, 5001, 8000, 8001, 8080, 8081, 9000, 9001}
-	
+
 	var result []process.PortInfo
 	for _, port := range commonPorts {
 		if s.IsPortInUse(port) {
@@ -162,7 +162,7 @@ func (s *Scanner) GetListeningPorts() ([]process.PortInfo, error) {
 			}
 		}
 	}
-	
+
 	return result, nil
 }
 
@@ -187,19 +187,19 @@ func (s *Scanner) GetRecommendedPort(appType string) int {
 		"monitoring": 9090,
 		"metrics":    9091,
 	}
-	
+
 	if port, exists := recommendations[strings.ToLower(appType)]; exists {
 		// Try to find available port starting from recommendation
 		if available, err := s.FindAvailablePort(port); err == nil {
 			return available
 		}
 	}
-	
+
 	// Default to finding available port from 3000
 	if available, err := s.FindAvailablePort(3000); err == nil {
 		return available
 	}
-	
+
 	return 0
 }
 
@@ -210,25 +210,25 @@ func (s *Scanner) ParsePortRange(rangeStr string) (int, int, error) {
 		port, err := strconv.Atoi(rangeStr)
 		return port, port, fmt.Errorf("failed to parse port %q: %w", rangeStr, err)
 	}
-	
+
 	parts := strings.Split(rangeStr, "-")
 	if len(parts) != 2 {
 		return 0, 0, fmt.Errorf("%w: %s", ErrInvalidPortRange, rangeStr)
 	}
-	
+
 	start, err := strconv.Atoi(strings.TrimSpace(parts[0]))
 	if err != nil {
 		return 0, 0, fmt.Errorf("invalid start port: %w", err)
 	}
-	
+
 	end, err := strconv.Atoi(strings.TrimSpace(parts[1]))
 	if err != nil {
 		return 0, 0, fmt.Errorf("invalid end port: %w", err)
 	}
-	
+
 	if start > end {
 		return 0, 0, ErrPortRangeOrder
 	}
-	
+
 	return start, end, nil
 }
