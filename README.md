@@ -33,7 +33,29 @@ mv portguard /usr/local/bin/
 
 ## Quick Start
 
-### Basic Usage
+### 🚀 Claude Code Integration (Recommended)
+
+The fastest way to get started is with our one-command Claude Code integration:
+
+```bash
+# Install Claude Code hooks (prevents duplicate servers automatically)
+portguard hooks install
+
+# That's it! Your AI development workflow is now protected
+```
+
+Choose from different templates:
+- **basic**: Simple server conflict prevention 
+- **advanced**: Health monitoring & lifecycle tracking
+- **developer**: Full workflow optimization
+
+```bash
+portguard hooks install advanced  # For more features
+portguard hooks status            # Check installation
+portguard hooks list --templates  # See all options
+```
+
+### Manual Process Management
 
 ```bash
 # Start a process (or reuse existing one)
