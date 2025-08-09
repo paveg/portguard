@@ -1,0 +1,38 @@
+coverage:
+  precision: 2
+  round: down
+  range: "70...100"
+
+  status:
+    project:
+      default:
+        target: 70%
+        threshold: 5%
+        if_no_uploads: error
+    patch:
+      default:
+        target: 70%
+        threshold: 5%
+        if_no_uploads: error
+
+comment:
+  layout: "header, diff, files"
+  behavior: default
+  require_changes: false
+  require_base: no
+  require_head: yes
+  show_carryforward_flags: false
+
+ignore:
+  - "cmd/"
+  - "**/*_test.go"
+  - "**/testdata/**"
+  - "examples/"
+  - "docs/"
+  - "scripts/"
+
+flags:
+  unittests:
+    paths:
+      - internal/
+    carryforward: true

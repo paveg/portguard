@@ -32,6 +32,17 @@ test-coverage:
 	go tool cover -func=coverage.out
 	@echo "Coverage report: coverage.html"
 
+# Run tests with coverage and generate reports
+test-coverage-ci:
+	@echo "Running tests with coverage for CI..."
+	go test -v -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out -o coverage-report.html
+	go tool cover -func=coverage.out -o coverage-summary.txt
+	@echo "Coverage reports generated:"
+	@echo "  - coverage.out (raw profile)"
+	@echo "  - coverage-report.html (HTML report)" 
+	@echo "  - coverage-summary.txt (function summary)"
+
 # Run tests with race detection
 test-race:
 	@echo "Running tests with race detection..."
