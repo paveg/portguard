@@ -1,3 +1,10 @@
+---
+# Codecov configuration for Portguard
+# See: https://docs.codecov.com/docs/codecov-yaml
+
+codecov:
+  require_ci_to_pass: true
+
 coverage:
   precision: 2
   round: down
@@ -9,6 +16,8 @@ coverage:
         target: 70%
         threshold: 5%
         if_no_uploads: error
+        branches:
+          - main
     patch:
       default:
         target: 70%
@@ -16,11 +25,11 @@ coverage:
         if_no_uploads: error
 
 comment:
-  layout: "header, diff, files"
+  layout: "header, diff, flags, files, footer"
   behavior: default
   require_changes: false
-  require_base: no
-  require_head: yes
+  require_base: false
+  require_head: true
   show_carryforward_flags: false
 
 ignore:
@@ -30,9 +39,13 @@ ignore:
   - "examples/"
   - "docs/"
   - "scripts/"
+  - "build/"
+  - "*.md"
 
 flags:
   unittests:
     paths:
       - internal/
     carryforward: true
+    ignore:
+      - "**/*_test.go"
