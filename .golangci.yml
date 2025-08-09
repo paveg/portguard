@@ -102,8 +102,6 @@ linters:
 
     # Security linter
     gosec:
-      # Include test files
-      include-tests: true
       # Exclude specific rules that are common in CLI apps and not actual security issues
       excludes:
         - G204  # Subprocess launched with variable
