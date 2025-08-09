@@ -61,6 +61,6 @@ func processExistsWindows(pid int) bool {
 }
 
 // getCurrentPID returns the current process ID
-func getCurrentPID() int {
+func getCurrentPID() int { //nolint:unused // TODO: Remove if not used in future lock manager features
 	return os.Getpid()
 }

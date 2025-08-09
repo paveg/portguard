@@ -1,3 +1,6 @@
+// Package process provides core process management functionality for Portguard.
+// It implements the ProcessManager for handling server process lifecycle,
+// conflict detection, and integration with state management and port scanning.
 package process
 
 import (
@@ -65,7 +68,7 @@ func NewProcessManager(stateStore StateStore, lockManager LockManager, portScann
 // generateID generates a unique ID for a process based on command and timestamp
 func (pm *ProcessManager) generateID(command string) string {
 	hash := sha256.Sum256([]byte(fmt.Sprintf("%s-%d", command, time.Now().UnixNano())))
-	return fmt.Sprintf("%x", hash)[:8]
+	return fmt.Sprintf("%x", hash)[:8] //nolint:perfsprint // TODO: Use hex.EncodeToString for better performance
 }
 
 // ShouldStartNew determines if a new process should be started or an existing one reused
@@ -187,7 +190,7 @@ func (pm *ProcessManager) ListProcesses(options ProcessListOptions) []*ManagedPr
 	pm.mutex.RLock()
 	defer pm.mutex.RUnlock()
 
-	var result []*ManagedProcess
+	var result []*ManagedProcess //nolint:prealloc // TODO: Pre-allocate slice based on filter criteria
 	for _, process := range pm.processes {
 		// Apply filters
 		if !options.IncludeStopped && !process.IsRunning() {

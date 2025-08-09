@@ -1,3 +1,5 @@
+// Package cmd provides command-line interface functionality for Portguard.
+// It implements all CLI commands using Cobra framework for the AI-aware process management tool.
 package cmd
 
 import (

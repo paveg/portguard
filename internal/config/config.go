@@ -1,3 +1,6 @@
+// Package config provides configuration management for Portguard.
+// It handles loading and validation of configuration files, environment variables,
+// and command-line parameters for the AI-aware process management tool.
 package config
 
 import (
@@ -253,7 +256,7 @@ func (c *Config) RemoveProject(name string) {
 
 // ListProjects returns all project names
 func (c *Config) ListProjects() []string {
-	var names []string
+	var names []string //nolint:prealloc // TODO: Pre-allocate slice with len(c.Projects)
 	for name := range c.Projects {
 		names = append(names, name)
 	}
