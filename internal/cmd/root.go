@@ -8,6 +8,9 @@ import (
 	"github.com/spf13/viper"
 )
 
+// Version will be set during build time
+var Version = "dev"
+
 var (
 	rootCmd = &cobra.Command{
 		Use:   "portguard",
@@ -19,7 +22,7 @@ port conflict detection, and health monitoring.
 Perfect for solving the common problem where AI tools like Claude Code, 
 GitHub Copilot, and Cursor repeatedly start servers without checking 
 if they're already running, causing port conflicts and resource waste.`,
-		Version: "0.1.0",
+		Version: Version,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			if verbose {
 				fmt.Println("Using config file:", viper.ConfigFileUsed())

@@ -21,7 +21,7 @@ portguard hooks install
 # Choose a specific template
 portguard hooks install basic     # Simple conflict prevention
 portguard hooks install advanced  # Health monitoring + lifecycle
-portportguard hooks install developer # Full workflow optimization
+portguard hooks install developer # Full workflow optimization
 ```
 
 This will:

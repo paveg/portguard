@@ -116,6 +116,7 @@ JSON Response: {status: "success", message: "...", data: {...}}
 ### Error Handling Requirements
 
 **ALWAYS check errors**: Never ignore error return values
+
 ```go
 // ❌ Bad
 os.Remove(tempFile)
@@ -130,6 +131,7 @@ _ = os.Remove(tempFile) // Cleanup - errors are not critical
 ```
 
 **Use errors.As for type assertions on errors**:
+
 ```go
 // ❌ Bad
 if configErr, ok := err.(*viper.ConfigFileNotFoundError); ok {
@@ -140,6 +142,7 @@ if errors.As(err, &configErr) {
 ```
 
 **Wrap external package errors**:
+
 ```go
 // ❌ Bad
 return err
@@ -151,10 +154,12 @@ return fmt.Errorf("failed to parse config: %w", err)
 ### Test Code Standards
 
 **Import restrictions**: Test files should not import production dependencies unnecessarily
+
 - Avoid importing `cobra` and `viper` in tests unless testing those specific integrations
 - Use dependency injection and mocks instead
 
 **Use proper assertion methods**:
+
 ```go
 // ❌ Bad
 assert.Equal(t, "", value)           // Use assert.Empty
@@ -169,6 +174,7 @@ assert.ErrorIs(t, err, expectedErr)
 ```
 
 **Use require for critical assertions**:
+
 ```go
 // ❌ Bad - test continues if this fails
 assert.NoError(t, err)
@@ -180,6 +186,7 @@ result := processResult()
 ```
 
 **Use context with exec.Command**:
+
 ```go
 // ❌ Bad
 cmd := exec.Command("git", "status")
@@ -191,6 +198,7 @@ cmd := exec.CommandContext(ctx, "git", "status")
 ```
 
 **Avoid variable shadowing**:
+
 ```go
 // ❌ Bad
 func TestSomething(t *testing.T) {
@@ -212,6 +220,7 @@ func TestSomething(t *testing.T) {
 ### Variable Naming
 
 **Use descriptive names for broader scopes**:
+
 ```go
 // ❌ Bad - too short for scope
 func processData() {
@@ -227,6 +236,7 @@ func processData() {
 ### Duration Handling
 
 **Use Go standard durations only**:
+
 ```go
 // ❌ Bad - "d" is not a standard Go duration unit
 BackupRetention: "7d"
@@ -238,6 +248,7 @@ BackupRetention: "168h" // 7 days = 7 * 24 hours
 ### Configuration Standards  
 
 **Use appropriate types**:
+
 ```go
 // ❌ Bad - magic numbers without constants
 if timeout < 30 {
@@ -248,6 +259,7 @@ if timeout < DefaultTimeout {
 ```
 
 **Provide sensible defaults**:
+
 ```go
 // ✅ All config fields should have reasonable defaults
 viper.SetDefault("default.health_check.timeout", "30s")
@@ -257,6 +269,7 @@ viper.SetDefault("default.cleanup.max_idle_time", "1h")
 ### JSON API Standards
 
 **Use consistent response structures**:
+
 ```go
 type APIResponse struct {
     Success bool        `json:"success"`
@@ -267,6 +280,7 @@ type APIResponse struct {
 ```
 
 **Use snake_case for JSON fields**:
+
 ```go
 type Config struct {
     MaxIdleTime time.Duration `json:"max_idle_time"`
@@ -277,11 +291,13 @@ type Config struct {
 ### Security Requirements
 
 **Never log or commit sensitive information**:
+
 - API keys, passwords, tokens should use environment variables
 - Sanitize user input in commands and file paths
 - Use secure file permissions (0600 for sensitive files, 0755 for directories)
 
 **Safe command execution**:
+
 ```go
 // Validate and sanitize command arguments
 // Use absolute paths when possible
@@ -291,6 +307,7 @@ type Config struct {
 ### Performance Guidelines
 
 **Pre-allocate slices when size is known**:
+
 ```go
 // ❌ Bad
 var items []string
