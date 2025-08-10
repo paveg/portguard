@@ -3,6 +3,8 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -759,5 +761,33 @@ func TestInterceptCommand_ComplexScenarios(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, "success", response.Status)
+	})
+}
+
+func TestOutputErrorResponse(t *testing.T) {
+	// Capture stdout
+	oldStdout := os.Stdout
+	reader, writer, _ := os.Pipe()
+	os.Stdout = writer
+
+	defer func() {
+		os.Stdout = oldStdout
+	}()
+
+	t.Run("output_error_response", func(t *testing.T) {
+		testErr := errors.New("test error message")
+		
+		outputErrorResponse(testErr)
+		
+		writer.Close()
+		output, _ := io.ReadAll(reader)
+		
+		var response PreToolUseResponse
+		err := json.Unmarshal(output, &response)
+		require.NoError(t, err)
+		
+		assert.True(t, response.Proceed) // Should fail open
+		assert.Contains(t, response.Message, "Hook error")
+		assert.Contains(t, response.Message, "test error message")
 	})
 }

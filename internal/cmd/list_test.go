@@ -61,7 +61,7 @@ func executeListCmd(t *testing.T, args []string) (string, error) {
 	var buf bytes.Buffer
 	
 	// Simple argument parsing for mock testing
-	var includeAll, jsonOutput, verbose bool
+	var includeAll, jsonOutput, verboseOutput bool
 	var filterPort int
 	var filterStatus string
 
@@ -87,7 +87,7 @@ func executeListCmd(t *testing.T, args []string) (string, error) {
 			}
 			filterStatus = args[i+1]
 		case "--verbose":
-			verbose = true
+			verboseOutput = true
 		}
 	}
 
@@ -134,7 +134,7 @@ func executeListCmd(t *testing.T, args []string) (string, error) {
 		return buf.String(), nil
 	}
 	
-	if verbose {
+	if verboseOutput {
 		// Verbose output format
 		for _, proc := range filteredProcesses {
 			buf.WriteString(fmt.Sprintf("ID: %s\n", proc.ID))

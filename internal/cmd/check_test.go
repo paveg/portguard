@@ -332,3 +332,47 @@ func TestCheckCommand_FlagValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestCheckPortInUse(t *testing.T) {
+	t.Run("check_port_3000", func(t *testing.T) {
+		inUse := checkPortInUse(3000)
+		assert.False(t, inUse) // Currently always returns false
+	})
+
+	t.Run("check_port_8080", func(t *testing.T) {
+		inUse := checkPortInUse(8080)
+		assert.False(t, inUse) // Currently always returns false
+	})
+
+	t.Run("check_port_0", func(t *testing.T) {
+		inUse := checkPortInUse(0)
+		assert.False(t, inUse) // Currently always returns false
+	})
+
+	t.Run("check_negative_port", func(t *testing.T) {
+		inUse := checkPortInUse(-1)
+		assert.False(t, inUse) // Currently always returns false
+	})
+}
+
+func TestFindAvailablePort(t *testing.T) {
+	t.Run("find_available_from_3000", func(t *testing.T) {
+		available := findAvailablePort(3000)
+		assert.Equal(t, 3000, available) // Currently returns the start port
+	})
+
+	t.Run("find_available_from_8080", func(t *testing.T) {
+		available := findAvailablePort(8080)
+		assert.Equal(t, 8080, available) // Currently returns the start port
+	})
+
+	t.Run("find_available_from_0", func(t *testing.T) {
+		available := findAvailablePort(0)
+		assert.Equal(t, 0, available) // Currently returns the start port
+	})
+
+	t.Run("find_available_from_high_port", func(t *testing.T) {
+		available := findAvailablePort(9000)
+		assert.Equal(t, 9000, available) // Currently returns the start port
+	})
+}

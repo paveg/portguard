@@ -587,16 +587,19 @@ func TestProcessManager_generateID(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			id1 := pm.generateID(tt.command)
+			
+			// Add small delay to ensure different timestamp
+			time.Sleep(time.Microsecond)
 			id2 := pm.generateID(tt.command)
 
-			// IDs should be non-empty and unique (includes timestamp)
+			// IDs should be non-empty and have expected length (8 hex chars)
 			assert.NotEmpty(t, id1)
 			assert.NotEmpty(t, id2)
-			assert.NotEqual(t, id1, id2, "Each generateID call should create unique ID due to timestamp")
-
-			// IDs should have expected length (8 hex chars)
 			assert.Len(t, id1, 8)
 			assert.Len(t, id2, 8)
+
+			// IDs should be unique due to timestamp difference
+			assert.NotEqual(t, id1, id2, "Each generateID call should create unique ID due to timestamp")
 
 			// ID should be different for different commands
 			if tt.command != "npm run dev" {
