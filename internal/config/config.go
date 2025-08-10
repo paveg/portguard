@@ -113,8 +113,8 @@ func Load() (*Config, error) {
 func setDefaults() {
 	// Default health check settings
 	viper.SetDefault("default.health_check.enabled", true)
-	viper.SetDefault("default.health_check.timeout", "5s")
-	viper.SetDefault("default.health_check.interval", "30s")
+	viper.SetDefault("default.health_check.timeout", "30s")
+	viper.SetDefault("default.health_check.interval", "10s")
 	viper.SetDefault("default.health_check.retries", 3)
 
 	// Default port range
@@ -124,7 +124,7 @@ func setDefaults() {
 	// Default cleanup settings
 	viper.SetDefault("default.cleanup.auto_cleanup", true)
 	viper.SetDefault("default.cleanup.max_idle_time", "1h")
-	viper.SetDefault("default.cleanup.backup_retention", "7d")
+	viper.SetDefault("default.cleanup.backup_retention", "168h")
 
 	// Default file paths
 	homeDir, _ := os.UserHomeDir() //nolint:errcheck // Fallback to current dir if home unavailable
@@ -140,8 +140,8 @@ func getDefaultConfig() *DefaultConfig {
 	return &DefaultConfig{
 		HealthCheck: &HealthCheckConfig{
 			Enabled:  true,
-			Timeout:  5 * time.Second,
-			Interval: 30 * time.Second,
+			Timeout:  30 * time.Second,
+			Interval: 10 * time.Second,
 			Retries:  3,
 		},
 		PortRange: &PortRangeConfig{
