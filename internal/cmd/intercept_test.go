@@ -175,10 +175,9 @@ func createBashParameters(command string) map[string]interface{} {
 }
 
 func TestInterceptCommand_PreToolUse(t *testing.T) {
-	// Set up mock ProcessManager factory for all tests
-	originalFactory := ProcessManagerFactory
-	defer func() { ProcessManagerFactory = originalFactory }()
-	ProcessManagerFactory = createMockProcessManager
+	// Set up mock ProcessManager factory for all tests (thread-safe)
+	restoreFactory := SetProcessManagerFactory(createMockProcessManager)
+	defer restoreFactory()
 
 	tests := []struct {
 		name           string
@@ -290,10 +289,9 @@ func TestInterceptCommand_PreToolUse(t *testing.T) {
 }
 
 func TestInterceptCommand_PostToolUse(t *testing.T) {
-	// Set up mock ProcessManager factory for all tests
-	originalFactory := ProcessManagerFactory
-	defer func() { ProcessManagerFactory = originalFactory }()
-	ProcessManagerFactory = createMockProcessManager
+	// Set up mock ProcessManager factory for all tests (thread-safe)
+	restoreFactory := SetProcessManagerFactory(createMockProcessManager)
+	defer restoreFactory()
 
 	tests := []struct {
 		name        string
@@ -415,10 +413,9 @@ func TestInterceptCommand_PostToolUse(t *testing.T) {
 }
 
 func TestInterceptCommand_InvalidEvents(t *testing.T) {
-	// Set up mock ProcessManager factory for all tests
-	originalFactory := ProcessManagerFactory
-	defer func() { ProcessManagerFactory = originalFactory }()
-	ProcessManagerFactory = createMockProcessManager
+	// Set up mock ProcessManager factory for all tests (thread-safe)
+	restoreFactory := SetProcessManagerFactory(createMockProcessManager)
+	defer restoreFactory()
 
 	tests := []struct {
 		name      string

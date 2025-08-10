@@ -8,6 +8,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/paveg/portguard/internal/lock"
@@ -23,7 +24,34 @@ var (
 )
 
 // ProcessManagerFactory can be overridden in tests
-var ProcessManagerFactory = createDefaultProcessManager
+// Ensure thread-safe access for concurrent test execution
+var (
+	processManagerFactoryMu sync.RWMutex
+	processManagerFactory   = createDefaultProcessManager
+)
+
+// ProcessManagerFactory returns the current factory function thread-safely
+func ProcessManagerFactory() *process.ProcessManager {
+	processManagerFactoryMu.RLock()
+	factory := processManagerFactory
+	processManagerFactoryMu.RUnlock()
+	return factory()
+}
+
+// SetProcessManagerFactory sets the factory function thread-safely (for tests)
+func SetProcessManagerFactory(factory func() *process.ProcessManager) func() {
+	processManagerFactoryMu.Lock()
+	original := processManagerFactory
+	processManagerFactory = factory
+	processManagerFactoryMu.Unlock()
+	
+	// Return restore function
+	return func() {
+		processManagerFactoryMu.Lock()
+		processManagerFactory = original
+		processManagerFactoryMu.Unlock()
+	}
+}
 
 // InterceptRequest represents the official Claude Code hook request format
 type InterceptRequest struct {
