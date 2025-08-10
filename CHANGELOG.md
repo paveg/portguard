@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-08-11
+
+### Added
+
+- **Complete Process Management Implementation**: Full integration of CLI `start` command with ProcessManager
+- **Real Process Execution**: Actual process spawning with PID tracking and lifecycle management
+- **Health Check Configuration**: Support for HTTP, TCP, and Command-based health checks via CLI flags
+- **State Persistence Integration**: JSON state storage with full process metadata tracking
+- **Command Parsing**: Robust command string parsing with argument handling
+- **ProcessManager Initialization**: Proper setup with state store, lock manager, and port scanner
+- **Background Monitoring**: Process monitoring with health check validation
+- **Comprehensive Test Suite**: 226 lines of unit tests covering all new functionality
+
+### Technical Implementation
+
+- **Process Lifecycle Management**: Complete process spawning, monitoring, and termination
+- **Health Check Types**:
+  - HTTP: `--health-check "http://localhost:3000/health"`
+  - TCP: `--health-check "localhost:8080"`
+  - Command: `--health-check "curl -f localhost:3000/ping"`
+- **State Management**: Process metadata stored in `~/.portguard/state.json`
+- **Error Handling**: Comprehensive error handling with proper user feedback
+- **Cross-platform Compatibility**: Works on Windows, macOS, and Linux
+
+### Enhanced CLI Usage
+
+```bash
+# Start with health check configuration
+portguard start "npm run dev" --port 3000 --health-check "http://localhost:3000/health"
+portguard start "go run main.go" --health-check "localhost:8080"
+portguard start "python app.py" --background
+
+# Example output
+✅ Process started successfully:
+   ID: f6040cde
+   PID: 4175
+   Command: npm run dev
+   Status: running
+   Port: 3000
+```
+
+### Improved
+
+- **Error Messages**: Better error handling and user-friendly messages
+- **Code Quality**: 0 linting issues with improved code organization
+- **Test Coverage**: Comprehensive test suite for process management functionality
+- **Build Process**: Fixed all build errors and cross-platform compilation issues
+
+### Fixed
+
+- **Build Errors**: Resolved port conflicts, missing imports, and struct field mismatches
+- **Linting Issues**: Fixed all golangci-lint warnings and errors
+- **Process Management**: Transition from "Process management not yet implemented" to fully functional system
+
+### Breaking Changes
+
+None - This release is backward compatible with v0.1.0
+
 ## [0.1.0] - 2025-08-10
 
 ### Added
@@ -83,4 +141,5 @@ Automatically detects and manages:
 - `node server.js`, `nodemon`, `vite`
 - And many more development server patterns
 
+[0.2.0]: https://github.com/paveg/portguard/releases/tag/v0.2.0
 [0.1.0]: https://github.com/paveg/portguard/releases/tag/v0.1.0
