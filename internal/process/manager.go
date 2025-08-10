@@ -8,6 +8,8 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"strings"
@@ -233,13 +235,20 @@ func (pm *ProcessManager) CleanupProcesses(force bool) error {
 	defer pm.mutex.Unlock()
 
 	var toRemove []string
+	var cleanupErrors []error
+
 	for id, process := range pm.processes {
 		if force || process.Status == StatusStopped || process.Status == StatusFailed {
-			// TODO: Actually clean up process resources
+			// Actually clean up process resources
+			if err := pm.cleanupProcessResources(process, force); err != nil {
+				cleanupErrors = append(cleanupErrors, fmt.Errorf("failed to cleanup process %s: %w", id, err))
+				// Continue with other processes even if one fails
+			}
 			toRemove = append(toRemove, id)
 		}
 	}
 
+	// Remove processes from memory
 	for _, id := range toRemove {
 		delete(pm.processes, id)
 	}
@@ -253,6 +262,90 @@ func (pm *ProcessManager) CleanupProcesses(force bool) error {
 	if err := pm.stateStore.Save(processesCopy); err != nil {
 		return fmt.Errorf("failed to save process state: %w", err)
 	}
+
+	// Return first cleanup error if any occurred
+	if len(cleanupErrors) > 0 {
+		return cleanupErrors[0]
+	}
+
+	return nil
+}
+
+// cleanupProcessResources performs actual cleanup of process resources
+func (pm *ProcessManager) cleanupProcessResources(process *ManagedProcess, force bool) error {
+	var cleanupErrors []error
+
+	// 1. Terminate the process if it's still running
+	if process.IsRunning() {
+		if err := pm.terminateProcess(process, force); err != nil {
+			cleanupErrors = append(cleanupErrors, fmt.Errorf("failed to terminate process: %w", err))
+		}
+	}
+
+	// 2. Clean up log files if they exist and are managed by us
+	if process.LogFile != "" {
+		if err := cleanupLogFile(process.LogFile); err != nil {
+			cleanupErrors = append(cleanupErrors, fmt.Errorf("failed to cleanup log file: %w", err))
+		}
+	}
+
+	// 3. Clean up any temporary files or directories if specified
+	// This could be extended to handle process-specific cleanup
+	if process.WorkingDir != "" && strings.Contains(process.WorkingDir, "temp") {
+		// Only clean up directories that look like temp directories to avoid accidents
+		if err := cleanupTempDirectory(process.WorkingDir); err != nil {
+			cleanupErrors = append(cleanupErrors, fmt.Errorf("failed to cleanup working directory: %w", err))
+		}
+	}
+
+	// Return first error if any occurred
+	if len(cleanupErrors) > 0 {
+		return cleanupErrors[0]
+	}
+
+	return nil
+}
+
+// cleanupLogFile removes log files if they exist
+func cleanupLogFile(logFile string) error {
+	if logFile == "" {
+		return nil
+	}
+
+	// Check if file exists
+	if _, err := os.Stat(logFile); os.IsNotExist(err) {
+		return nil // File doesn't exist, nothing to clean up
+	}
+
+	// Remove the log file
+	if err := os.Remove(logFile); err != nil {
+		return fmt.Errorf("failed to remove log file %s: %w", logFile, err)
+	}
+
+	return nil
+}
+
+// cleanupTempDirectory removes temporary directories if they're safe to remove
+func cleanupTempDirectory(workingDir string) error {
+	if workingDir == "" {
+		return nil
+	}
+
+	// Safety check: only clean up directories that contain "temp" in the path
+	if !strings.Contains(strings.ToLower(workingDir), "temp") {
+		return nil // Skip cleanup for safety
+	}
+
+	// Check if directory exists
+	if _, err := os.Stat(workingDir); os.IsNotExist(err) {
+		return nil // Directory doesn't exist, nothing to clean up
+	}
+
+	// Remove the directory and its contents
+	if err := os.RemoveAll(workingDir); err != nil {
+		return fmt.Errorf("failed to remove temp directory %s: %w", workingDir, err)
+	}
+
 	return nil
 }
 
@@ -389,7 +482,7 @@ func (pm *ProcessManager) monitorProcess(ctx context.Context, process *ManagedPr
 
 			// Run health check if configured
 			if process.HealthCheck != nil {
-				if err := pm.runHealthCheck(process); err != nil {
+				if err := pm.runHealthCheck(ctx, process); err != nil {
 					//nolint:errcheck // Background monitoring, error logged elsewhere
 					_ = pm.updateProcessStatus(process.ID, StatusUnhealthy)
 				} else {
@@ -542,25 +635,40 @@ func (pm *ProcessManager) updateProcessStatus(processID string, status ProcessSt
 }
 
 // runHealthCheck runs a health check for a process
-func (pm *ProcessManager) runHealthCheck(process *ManagedProcess) error {
+func (pm *ProcessManager) runHealthCheck(ctx context.Context, process *ManagedProcess) error {
 	if process.HealthCheck == nil {
 		return nil // No health check configured
 	}
 
-	// For now, implement a simple command-based health check
-	// This can be expanded based on the HealthCheck type in types.go
-
-	// TODO: Implement different health check types (HTTP, TCP, Command)
-	// For now, just assume the process is healthy if it's running
-	if process.PID > 0 {
-		if osProcess, err := os.FindProcess(process.PID); err == nil {
-			if isProcessAlive(osProcess) {
-				return nil // Process is running, consider it healthy
-			}
-		}
+	if !process.HealthCheck.Enabled {
+		return nil // Health checking disabled
 	}
 
-	return fmt.Errorf("process %s failed health check", process.ID)
+	// Set up timeout context
+	healthCtx, cancel := context.WithTimeout(ctx, process.HealthCheck.Timeout)
+	defer cancel()
+
+	// Perform health check based on type
+	switch process.HealthCheck.Type {
+	case HealthCheckHTTP:
+		return pm.performHTTPHealthCheck(healthCtx, process)
+	case HealthCheckTCP:
+		return pm.performTCPHealthCheck(healthCtx, process)
+	case HealthCheckCommand:
+		return pm.performCommandHealthCheck(healthCtx, process)
+	case HealthCheckNone:
+		return nil // No health check
+	default:
+		// Fallback to basic process alive check
+		if process.PID > 0 {
+			if osProcess, err := os.FindProcess(process.PID); err == nil {
+				if isProcessAlive(osProcess) {
+					return nil // Process is running, consider it healthy
+				}
+			}
+		}
+		return fmt.Errorf("process %s failed basic health check", process.ID)
+	}
 }
 
 // cleanupStaleProcesses removes processes that haven't been seen for a while
@@ -596,4 +704,77 @@ func (pm *ProcessManager) cleanupStaleProcesses(maxAge time.Duration) (int, erro
 	}
 
 	return len(toRemove), nil
+}
+
+// performHTTPHealthCheck performs an HTTP health check
+func (pm *ProcessManager) performHTTPHealthCheck(ctx context.Context, process *ManagedProcess) error {
+	if process.HealthCheck.Target == "" {
+		return errors.New("HTTP health check target URL not specified")
+	}
+
+	// Create HTTP request with context
+	req, err := http.NewRequestWithContext(ctx, "GET", process.HealthCheck.Target, http.NoBody)
+	if err != nil {
+		return fmt.Errorf("failed to create HTTP request: %w", err)
+	}
+
+	// Perform HTTP request with timeout
+	httpClient := &http.Client{
+		Timeout: process.HealthCheck.Timeout,
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("HTTP health check failed: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }() //nolint:errcheck // Cleanup operation
+
+	// Check HTTP status code
+	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
+		return fmt.Errorf("HTTP health check failed with status %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+// performTCPHealthCheck performs a TCP connection health check
+func (pm *ProcessManager) performTCPHealthCheck(ctx context.Context, process *ManagedProcess) error {
+	if process.HealthCheck.Target == "" {
+		return errors.New("TCP health check target address not specified")
+	}
+
+	// Create TCP connection with context
+	var dialer net.Dialer
+	conn, err := dialer.DialContext(ctx, "tcp", process.HealthCheck.Target)
+	if err != nil {
+		return fmt.Errorf("TCP health check failed: %w", err)
+	}
+	defer func() { _ = conn.Close() }() //nolint:errcheck // Cleanup operation
+
+	return nil
+}
+
+// performCommandHealthCheck performs a command-based health check
+func (pm *ProcessManager) performCommandHealthCheck(ctx context.Context, process *ManagedProcess) error {
+	if process.HealthCheck.Target == "" {
+		return errors.New("command health check target not specified")
+	}
+
+	// Parse command and arguments
+	parts := strings.Fields(process.HealthCheck.Target)
+	if len(parts) == 0 {
+		return errors.New("empty health check command")
+	}
+
+	command := parts[0]
+	args := parts[1:]
+
+	// Execute command with context
+	cmd := exec.CommandContext(ctx, command, args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("command health check failed: %w (output: %s)", err, string(output))
+	}
+
+	return nil
 }
