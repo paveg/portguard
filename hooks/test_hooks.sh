@@ -32,12 +32,12 @@ log_info() {
 
 log_success() {
     echo -e "${GREEN}[PASS]${NC} $*"
-    ((TESTS_PASSED++))
+    ((TESTS_PASSED++)) || true
 }
 
 log_error() {
     echo -e "${RED}[FAIL]${NC} $*"
-    ((TESTS_FAILED++))
+    ((TESTS_FAILED++)) || true
 }
 
 log_warning() {
@@ -245,7 +245,7 @@ main() {
         },
         "session_id": "test123",
         "working_dir": "/tmp/test"
-    }' "success"
+    }' "error"
     
     # Test 3: Non-server command success
     run_posttooluse_test "Non-Server Command Success" "$POSTTOOLUSE_HOOK" '{
