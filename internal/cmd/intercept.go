@@ -8,6 +8,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/paveg/portguard/internal/lock"
@@ -21,6 +22,36 @@ import (
 var (
 	ErrUnknownEvent = errors.New("unknown event type")
 )
+
+// ProcessManagerFactory can be overridden in tests
+// Ensure thread-safe access for concurrent test execution
+var (
+	processManagerFactoryMu sync.RWMutex
+	processManagerFactory   = createDefaultProcessManager
+)
+
+// ProcessManagerFactory returns the current factory function thread-safely
+func ProcessManagerFactory() *process.ProcessManager {
+	processManagerFactoryMu.RLock()
+	factory := processManagerFactory
+	processManagerFactoryMu.RUnlock()
+	return factory()
+}
+
+// SetProcessManagerFactory sets the factory function thread-safely (for tests)
+func SetProcessManagerFactory(factory func() *process.ProcessManager) func() {
+	processManagerFactoryMu.Lock()
+	original := processManagerFactory
+	processManagerFactory = factory
+	processManagerFactoryMu.Unlock()
+	
+	// Return restore function
+	return func() {
+		processManagerFactoryMu.Lock()
+		processManagerFactory = original
+		processManagerFactoryMu.Unlock()
+	}
+}
 
 // InterceptRequest represents the official Claude Code hook request format
 type InterceptRequest struct {
@@ -124,7 +155,7 @@ func handlePreToolUse(request *InterceptRequest) {
 	// Check for conflicts
 	//nolint:govet // TODO: Rename variable to avoid shadowing (e.g., detectedPort)
 	port := extractPort(command)
-	pm := createProcessManager()
+	pm := ProcessManagerFactory()
 
 	if existing := checkForConflict(pm, command, port); existing != nil {
 		response.Proceed = false
@@ -155,8 +186,16 @@ func handlePostToolUse(request *InterceptRequest) {
 		Data:    make(map[string]interface{}),
 	}
 
-	// Only process successful Bash commands
-	if request.ToolName != "Bash" || request.Result == nil || !request.Result.Success {
+	// Only process Bash commands
+	if request.ToolName != "Bash" || request.Result == nil {
+		outputJSON(response)
+		return
+	}
+
+	// If command failed, return error status
+	if !request.Result.Success {
+		response.Status = "error"
+		response.Message = "Command failed"
 		outputJSON(response)
 		return
 	}
@@ -173,7 +212,7 @@ func handlePostToolUse(request *InterceptRequest) {
 	if port := extractPortFromOutput(request.Result.Output); port > 0 {
 		// Register the process (async to not block)
 		go func() {
-			pm := createProcessManager()
+			pm := ProcessManagerFactory()
 			_, _ = pm.StartProcess(command, []string{}, process.StartOptions{
 				Port:       port,
 				WorkingDir: request.WorkingDir,
@@ -190,10 +229,17 @@ func handlePostToolUse(request *InterceptRequest) {
 
 func isServerCommand(command string) bool {
 	patterns := []string{
-		"npm run dev", "yarn dev", "pnpm dev",
+		// Node.js patterns
+		"npm run dev", "npm start", "yarn dev", "pnpm dev", "node .*\\.js",
 		"next dev", "vite", "webpack-dev-server",
-		"python.*app.py", "flask run", "django.*runserver",
-		"go run.*main.go", "rails server",
+		// Go patterns  
+		"go run.*\\.go",
+		// Python patterns
+		"python.*-m http\\.server", "python3.*-m http\\.server", 
+		"flask run", "python.*manage\\.py runserver", "uvicorn",
+		// Other server patterns
+		"hugo server", "jekyll serve", "php.*-S",
+		"rails server",
 	}
 
 	for _, pattern := range patterns {
@@ -209,7 +255,7 @@ func isServerCommand(command string) bool {
 }
 
 func extractPort(command string) int {
-	// Port extraction logic
+	// Port extraction logic for explicit port flags
 	portRegex := regexp.MustCompile(`--port[=\s]+(\d+)|:(\d+)|-p[=\s]+(\d+)`)
 	if matches := portRegex.FindStringSubmatch(command); len(matches) > 0 {
 		for i := 1; i < len(matches); i++ {
@@ -223,7 +269,10 @@ func extractPort(command string) int {
 		}
 	}
 
-	// Default ports
+	// Framework-specific default ports
+	if strings.Contains(command, "npm run dev") {
+		return 3000
+	}
 	if strings.Contains(command, "next dev") {
 		return 3000
 	}
@@ -231,9 +280,21 @@ func extractPort(command string) int {
 		//nolint:mnd // TODO: Extract to constant defaultVitePort = 5173
 		return 5173
 	}
-	if strings.Contains(command, "flask") {
+	if strings.Contains(command, "flask run") {
 		//nolint:mnd // TODO: Extract to constant defaultFlaskPort = 5000
 		return 5000
+	}
+	if strings.Contains(command, "manage.py runserver") {
+		//nolint:mnd // TODO: Extract to constant defaultDjangoPort = 8000
+		return 8000
+	}
+	if strings.Contains(command, "jekyll serve") {
+		//nolint:mnd // TODO: Extract to constant defaultJekyllPort = 4000
+		return 4000
+	}
+	if strings.Contains(command, "hugo server") {
+		//nolint:mnd // TODO: Extract to constant defaultHugoPort = 1313
+		return 1313
 	}
 
 	return 0
@@ -241,15 +302,19 @@ func extractPort(command string) int {
 
 func extractPortFromOutput(output string) int {
 	patterns := []string{
-		`listening on port (\d+)`,
+		// Common server output patterns
 		`localhost:(\d+)`,
-		`http://[^:]+:(\d+)`,
+		`127\.0\.0\.1:(\d+)`,
+		`listening on :(\d+)`,
+		`port (\d+)`,
+		`https?://[^:]+:(\d+)`,
+		`serving at [^:]+:(\d+)`,
 		`0\.0\.0\.0:(\d+)`,
 	}
 
 	for _, pattern := range patterns {
-		re := regexp.MustCompile(pattern)
-		if matches := re.FindStringSubmatch(strings.ToLower(output)); len(matches) > 1 {
+		re := regexp.MustCompile("(?i)" + pattern) // Case insensitive
+		if matches := re.FindStringSubmatch(output); len(matches) > 1 {
 			//nolint:govet // TODO: Rename variable to avoid shadowing (e.g., parsedPort)
 			var port int
 			fmt.Sscanf(matches[1], "%d", &port)
@@ -261,7 +326,7 @@ func extractPortFromOutput(output string) int {
 	return 0
 }
 
-func createProcessManager() *process.ProcessManager {
+func createDefaultProcessManager() *process.ProcessManager {
 	stateStore, _ := state.NewJSONStore("~/.portguard/state.json")
 	lockManager := lock.NewFileLock("~/.portguard/portguard.lock", 5*time.Second)
 	//nolint:noctx // TODO: Add context support to port scanner for better timeout control
