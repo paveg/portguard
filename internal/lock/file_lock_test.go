@@ -21,12 +21,12 @@ const (
 // Helper function to create a test FileLock with temp file
 func setupTestFileLock(t *testing.T, timeout time.Duration) (*FileLock, string, func()) {
 	t.Helper()
-	
+
 	tempDir := t.TempDir()
 	lockFile := filepath.Join(tempDir, "test.lock")
-	
+
 	fileLock := NewFileLock(lockFile, timeout)
-	
+
 	cleanup := func() {
 		// cleanup is handled by t.TempDir()
 		// but we should try to unlock if still locked
@@ -35,7 +35,7 @@ func setupTestFileLock(t *testing.T, timeout time.Duration) (*FileLock, string, 
 			_ = fileLock.Unlock()
 		}
 	}
-	
+
 	return fileLock, lockFile, cleanup
 }
 
@@ -50,9 +50,9 @@ func createTestLockInfo(pid int) Info {
 
 func TestNewFileLock(t *testing.T) {
 	tests := []struct {
-		name        string
-		setupPath   func(*testing.T) string
-		timeout     time.Duration
+		name         string
+		setupPath    func(*testing.T) string
+		timeout      time.Duration
 		validateFunc func(*testing.T, *FileLock)
 	}{
 		{
@@ -99,9 +99,9 @@ func TestNewFileLock(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			lockFile := tt.setupPath(t)
-			
+
 			fileLock := NewFileLock(lockFile, tt.timeout)
-			
+
 			require.NotNil(t, fileLock)
 			tt.validateFunc(t, fileLock)
 		})
@@ -138,7 +138,7 @@ func TestFileLock_LockUnlock(t *testing.T) {
 				// First lock should succeed
 				err := fl.Lock()
 				require.NoError(t, err)
-				
+
 				// Second lock should succeed (same instance)
 				err = fl.Lock()
 				require.NoError(t, err)
@@ -246,10 +246,10 @@ func TestFileLock_StaleLockDetection(t *testing.T) {
 	t.Run("detect_stale_lock_from_dead_process", func(t *testing.T) {
 		// Create a fake stale lock file with non-existent PID
 		staleLockInfo := createTestLockInfo(99999) // Very high PID unlikely to exist
-		
+
 		lockData, err := json.Marshal(staleLockInfo)
 		require.NoError(t, err)
-		
+
 		err = os.WriteFile(lockFile, lockData, 0o600)
 		require.NoError(t, err)
 
@@ -266,10 +266,10 @@ func TestFileLock_StaleLockDetection(t *testing.T) {
 		// Create a fake lock with old timestamp
 		staleLockInfo := createTestLockInfo(os.Getpid())
 		staleLockInfo.Timestamp = time.Now().Add(-24 * time.Hour) // Very old timestamp
-		
+
 		lockData, err := json.Marshal(staleLockInfo)
 		require.NoError(t, err)
-		
+
 		err = os.WriteFile(lockFile, lockData, 0o600)
 		require.NoError(t, err)
 
@@ -306,7 +306,7 @@ func TestFileLock_GetLockInfo(t *testing.T) {
 
 	t.Run("get_lock_info_when_not_locked", func(t *testing.T) {
 		info, err := fileLock.GetLockInfo()
-		
+
 		// Should return error when no lock exists
 		require.Error(t, err)
 		assert.Nil(t, info)
@@ -317,7 +317,7 @@ func TestFileLock_GetLockInfo(t *testing.T) {
 		testPID := 12345
 		testTimestamp := time.Now().Unix()
 		lockData := fmt.Sprintf("%d\n%d\n", testPID, testTimestamp)
-		
+
 		err := os.WriteFile(fileLock.lockFile, []byte(lockData), 0o600)
 		require.NoError(t, err)
 
@@ -361,7 +361,7 @@ func TestFileLock_ForceClearLock(t *testing.T) {
 		externalInfo := createTestLockInfo(99999)
 		lockData, err := json.Marshal(externalInfo)
 		require.NoError(t, err)
-		
+
 		err = os.WriteFile(fileLock.lockFile, lockData, 0o600)
 		require.NoError(t, err)
 
@@ -440,17 +440,17 @@ func TestFileLock_MultipleGoroutinesConcurrent(t *testing.T) {
 	for i := 0; i < numGoroutines; i++ {
 		go func(id int) {
 			defer wg.Done()
-			
+
 			results[id] = make([]bool, attemptsPerGoroutine)
 			errors[id] = make([]error, attemptsPerGoroutine)
-			
+
 			for j := 0; j < attemptsPerGoroutine; j++ {
 				fileLock := NewFileLock(lockFile, 50*time.Millisecond) // Short timeout
-				
+
 				err := fileLock.Lock()
 				if err == nil {
 					results[id][j] = true
-					
+
 					// Hold lock briefly
 					time.Sleep(10 * time.Millisecond)
 					//nolint:errcheck // Test cleanup can fail
@@ -467,7 +467,7 @@ func TestFileLock_MultipleGoroutinesConcurrent(t *testing.T) {
 	// Analyze results
 	totalSuccesses := 0
 	totalTimeouts := 0
-	
+
 	for i := 0; i < numGoroutines; i++ {
 		for j := 0; j < attemptsPerGoroutine; j++ {
 			if results[i][j] {
@@ -481,7 +481,7 @@ func TestFileLock_MultipleGoroutinesConcurrent(t *testing.T) {
 	// We should have some successes and some timeouts due to contention
 	assert.Positive(t, totalSuccesses, "At least some lock attempts should succeed")
 	assert.Positive(t, totalTimeouts, "Some lock attempts should timeout due to contention")
-	
+
 	t.Logf("Concurrent test results: %d successes, %d timeouts", totalSuccesses, totalTimeouts)
 }
 
@@ -490,11 +490,11 @@ func TestFileLock_TimeoutBehavior(t *testing.T) {
 	defer cleanup()
 
 	tests := []struct {
-		name            string
-		timeout         time.Duration
-		lockDelay       time.Duration
-		expectTimeout   bool
-		maxWaitTime     time.Duration
+		name          string
+		timeout       time.Duration
+		lockDelay     time.Duration
+		expectTimeout bool
+		maxWaitTime   time.Duration
 	}{
 		{
 			name:          "timeout_before_lock_release",
@@ -584,7 +584,7 @@ func TestFileLock_OwnershipValidation(t *testing.T) {
 
 		// First instance should still own the lock
 		assert.True(t, fileLock1.IsLocked())
-		
+
 		// Clean up
 		//nolint:errcheck // Test cleanup can fail
 		_ = fileLock1.Unlock()
@@ -594,7 +594,7 @@ func TestFileLock_OwnershipValidation(t *testing.T) {
 		// Lock and unlock with same instance
 		err := fileLock1.Lock()
 		require.NoError(t, err)
-		
+
 		err = fileLock1.Unlock()
 		require.NoError(t, err)
 		assert.False(t, fileLock1.IsLocked())
@@ -604,23 +604,23 @@ func TestFileLock_OwnershipValidation(t *testing.T) {
 func TestFileLock_DirectoryCreation(t *testing.T) {
 	tempDir := t.TempDir()
 	lockFile := filepath.Join(tempDir, "nested", "deep", "directory", "test.lock")
-	
+
 	fileLock := NewFileLock(lockFile, testLockTimeout)
-	
+
 	// Lock should succeed and create necessary directories
 	err := fileLock.Lock()
 	require.NoError(t, err)
 	assert.True(t, fileLock.IsLocked())
-	
+
 	// Verify lock file was created
 	_, err = os.Stat(lockFile)
 	require.NoError(t, err)
-	
+
 	// Verify directory structure was created
 	dir := filepath.Dir(lockFile)
 	_, err = os.Stat(dir)
 	require.NoError(t, err)
-	
+
 	//nolint:errcheck // Test cleanup can fail
 	_ = fileLock.Unlock()
 }

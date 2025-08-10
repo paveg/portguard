@@ -66,7 +66,7 @@ func TestLoad(t *testing.T) {
 				t.Helper()
 				tempDir := t.TempDir()
 				configPath := filepath.Join(tempDir, "test-config.yml")
-				
+
 				configContent := `
 default:
   health_check:
@@ -93,11 +93,11 @@ projects:
 `
 				err := os.WriteFile(configPath, []byte(configContent), 0o600)
 				require.NoError(t, err)
-				
+
 				// Reset viper and set config file
 				viper.Reset()
 				viper.SetConfigFile(configPath)
-				
+
 				return func() { viper.Reset() }
 			},
 			expectError: false,
@@ -105,7 +105,7 @@ projects:
 				t.Helper()
 				assert.NotNil(t, cfg)
 				assert.NotNil(t, cfg.Default)
-				
+
 				// Validate default settings
 				assert.True(t, cfg.Default.HealthCheck.Enabled)
 				assert.Equal(t, 10*time.Second, cfg.Default.HealthCheck.Timeout)
@@ -115,7 +115,7 @@ projects:
 				assert.Equal(t, 9000, cfg.Default.PortRange.End)
 				assert.Equal(t, "/tmp/portguard-test.json", cfg.Default.StateFile)
 				assert.Equal(t, "info", cfg.Default.LogLevel)
-				
+
 				// Validate project
 				assert.Len(t, cfg.Projects, 1)
 				webapp, exists := cfg.Projects["webapp"]
@@ -130,7 +130,7 @@ projects:
 		t.Run(tt.name, func(t *testing.T) {
 			cleanup := tt.setupConfig(t)
 			defer cleanup()
-			
+
 			cfg, err := Load()
 
 			if tt.expectError {
@@ -148,24 +148,24 @@ projects:
 
 func TestGetDefaultConfig(t *testing.T) {
 	config := getDefaultConfig()
-	
+
 	assert.NotNil(t, config)
 	assert.NotNil(t, config.HealthCheck)
 	assert.NotNil(t, config.PortRange)
 	assert.NotNil(t, config.Cleanup)
-	
+
 	// Verify default values
 	assert.True(t, config.HealthCheck.Enabled)
 	assert.Equal(t, 30*time.Second, config.HealthCheck.Timeout)
 	assert.Equal(t, 10*time.Second, config.HealthCheck.Interval)
 	assert.Equal(t, 3, config.HealthCheck.Retries)
-	
+
 	assert.Equal(t, 3000, config.PortRange.Start)
 	assert.Equal(t, 9000, config.PortRange.End)
-	
+
 	assert.True(t, config.Cleanup.AutoCleanup)
 	assert.Equal(t, 1*time.Hour, config.Cleanup.MaxIdleTime)
-	
+
 	assert.Equal(t, "info", config.LogLevel)
 }
 
@@ -189,7 +189,7 @@ func TestExpandPaths(t *testing.T) {
 				require.NoError(t, err)
 				expectedStateFile := filepath.Join(homeDir, "portguard", "state.json")
 				expectedLockFile := filepath.Join(homeDir, "portguard", "lock.file")
-				
+
 				assert.Equal(t, expectedStateFile, cfg.Default.StateFile)
 				assert.Equal(t, expectedLockFile, cfg.Default.LockFile)
 			},
@@ -208,7 +208,7 @@ func TestExpandPaths(t *testing.T) {
 				require.NoError(t, err)
 				expectedStateFile := filepath.Join(wd, "data", "state.json")
 				expectedLockFile := filepath.Join(wd, "data", "lock.file")
-				
+
 				assert.Equal(t, expectedStateFile, cfg.Default.StateFile)
 				assert.Equal(t, expectedLockFile, cfg.Default.LockFile)
 			},
@@ -291,7 +291,7 @@ func TestExpandPath(t *testing.T) {
 func TestConfigSave(t *testing.T) {
 	tempDir := t.TempDir()
 	configPath := filepath.Join(tempDir, "test-save-config.yml")
-	
+
 	config := &Config{
 		Default: &DefaultConfig{
 			HealthCheck: &HealthCheckConfig{
@@ -345,7 +345,7 @@ func TestConfigSave(t *testing.T) {
 
 	assert.Equal(t, config.Default.LogLevel, loadedConfig.Default.LogLevel)
 	assert.Equal(t, config.Default.PortRange.Start, loadedConfig.Default.PortRange.Start)
-	
+
 	assert.Len(t, loadedConfig.Projects, 1)
 	testapp, exists := loadedConfig.Projects["testapp"]
 	assert.True(t, exists)
@@ -368,13 +368,13 @@ func TestConfigProjectMethods(t *testing.T) {
 
 	config.AddProject("testproj", project)
 	assert.Len(t, config.Projects, 1)
-	
+
 	// Test GetProject
 	retrieved, exists := config.GetProject("testproj")
 	assert.True(t, exists)
 	assert.NotNil(t, retrieved)
 	assert.Equal(t, "npm run test", retrieved.Command)
-	
+
 	// Test GetProject non-existent
 	notFound, exists := config.GetProject("nonexistent")
 	assert.False(t, exists)
@@ -384,31 +384,31 @@ func TestConfigProjectMethods(t *testing.T) {
 	projects := config.ListProjects()
 	assert.Len(t, projects, 1)
 	assert.Contains(t, projects, "testproj")
-	
+
 	// Add another project
 	project2 := &ProjectConfig{
 		Command: "go run main.go",
 		Port:    8080,
 	}
 	config.AddProject("goproj", project2)
-	
+
 	projects = config.ListProjects()
 	assert.Len(t, projects, 2)
 	assert.Contains(t, projects, "testproj")
 	assert.Contains(t, projects, "goproj")
-	
+
 	// Test RemoveProject
 	config.RemoveProject("testproj")
 	assert.Len(t, config.Projects, 1)
-	
+
 	testproj, exists := config.GetProject("testproj")
 	assert.False(t, exists)
 	assert.Nil(t, testproj)
-	
+
 	goproj, exists := config.GetProject("goproj")
 	assert.True(t, exists)
 	assert.NotNil(t, goproj)
-	
+
 	// Test RemoveProject non-existent (should not panic)
 	config.RemoveProject("nonexistent")
 	assert.Len(t, config.Projects, 1)

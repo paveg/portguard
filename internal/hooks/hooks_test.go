@@ -72,7 +72,7 @@ func TestTemplate(t *testing.T) {
 		var unmarshaled Template
 		err = json.Unmarshal(data, &unmarshaled)
 		require.NoError(t, err)
-		
+
 		assert.Equal(t, template.Name, unmarshaled.Name)
 		assert.Equal(t, template.Version, unmarshaled.Version)
 		assert.Len(t, unmarshaled.Hooks, 1)
@@ -105,22 +105,22 @@ func TestHookDefinition(t *testing.T) {
 
 func TestNewManager(t *testing.T) {
 	manager := NewManager()
-	
+
 	assert.NotNil(t, manager)
 }
 
 func TestManagerListTemplates(t *testing.T) {
 	manager := NewManager()
-	
+
 	// Test listing built-in templates
 	t.Run("list_builtin_templates", func(t *testing.T) {
 		result, err := manager.ListTemplates()
 		require.NoError(t, err)
 		assert.NotNil(t, result)
-		
+
 		// Should have template data
 		assert.NotEmpty(t, result.Templates)
-		
+
 		// Check for expected template structure
 		for _, template := range result.Templates {
 			assert.NotEmpty(t, template.Name)
@@ -138,19 +138,19 @@ func TestNewInstaller(t *testing.T) {
 
 func TestInstallerInstall(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	config := &InstallConfig{
 		Template:     "basic-claude-integration",
 		ClaudeConfig: tempDir,
 		DryRun:       true,
 		Force:        false,
 	}
-	
+
 	installer := NewInstaller()
-	
+
 	t.Run("install_dry_run", func(t *testing.T) {
 		result, err := installer.Install(config)
-		
+
 		// In dry run mode, should not error but also shouldn't create files
 		if err == nil {
 			assert.NotNil(t, result)
@@ -176,12 +176,12 @@ func TestNewStatusChecker(t *testing.T) {
 
 func TestStatusCheckerCheck(t *testing.T) {
 	checker := NewStatusChecker()
-	
+
 	t.Run("check_status", func(t *testing.T) {
 		result, err := checker.Check()
 		require.NoError(t, err)
 		assert.NotNil(t, result)
-		
+
 		// Should have basic status information
 		assert.False(t, result.Installed) // Default should be false in test
 		assert.NotNil(t, result.Messages)
@@ -190,14 +190,14 @@ func TestStatusCheckerCheck(t *testing.T) {
 
 func TestManagerGetClaudeConfigPaths(t *testing.T) {
 	manager := NewManager()
-	
+
 	t.Run("get_claude_config_paths", func(t *testing.T) {
 		paths := manager.getClaudeConfigPaths()
 		assert.NotNil(t, paths)
-		
+
 		// Should return at least some potential paths
 		assert.GreaterOrEqual(t, len(paths), 1)
-		
+
 		for _, path := range paths {
 			assert.NotEmpty(t, path)
 			assert.True(t, filepath.IsAbs(path))
@@ -207,7 +207,7 @@ func TestManagerGetClaudeConfigPaths(t *testing.T) {
 
 func TestManagerListInstalled(t *testing.T) {
 	manager := NewManager()
-	
+
 	t.Run("list_installed_hooks", func(t *testing.T) {
 		result, err := manager.ListInstalled()
 		require.NoError(t, err)
@@ -239,7 +239,7 @@ func TestClaudeCodeSettings(t *testing.T) {
 		assert.True(t, exists)
 		assert.True(t, hook.Enabled)
 		assert.Equal(t, "portguard intercept", hook.Command)
-		
+
 		assert.Len(t, settings.Tools, 1)
 		assert.Contains(t, settings.Tools, "test")
 	})
@@ -247,11 +247,11 @@ func TestClaudeCodeSettings(t *testing.T) {
 	t.Run("claude_code_settings_json", func(t *testing.T) {
 		data, err := json.Marshal(settings)
 		require.NoError(t, err)
-		
+
 		var unmarshaled ClaudeCodeSettings
 		err = json.Unmarshal(data, &unmarshaled)
 		require.NoError(t, err)
-		
+
 		assert.Len(t, unmarshaled.Hooks, 1)
 		hook, exists := unmarshaled.Hooks["preToolUse"]
 		assert.True(t, exists)
@@ -284,10 +284,10 @@ func TestHookErrors(t *testing.T) {
 
 func TestInstallerCheckDependencies(t *testing.T) {
 	installer := NewInstaller()
-	
+
 	t.Run("check_basic_dependencies", func(t *testing.T) {
 		dependencies := []string{"echo", "cat"} // Common commands that should exist
-		
+
 		for _, dep := range dependencies {
 			available := installer.isCommandAvailable(dep)
 			// Most systems should have echo and cat
@@ -296,7 +296,7 @@ func TestInstallerCheckDependencies(t *testing.T) {
 			}
 		}
 	})
-	
+
 	t.Run("check_nonexistent_dependency", func(t *testing.T) {
 		available := installer.isCommandAvailable("definitely-not-a-real-command-12345")
 		assert.False(t, available)
@@ -307,18 +307,18 @@ func TestInstallerFindClaudeConfigPath(t *testing.T) {
 	tempDir := t.TempDir()
 	_ = InstallConfig{
 		ClaudeConfig: tempDir,
-		DryRun:    true,
+		DryRun:       true,
 	}
-	
+
 	installer := NewInstaller()
-	
+
 	t.Run("find_claude_config_path", func(t *testing.T) {
 		// Test that findClaudeConfigPath returns a valid directory path or empty string
 		// Note: This method checks real system paths, so we can only verify it returns
 		// a valid path structure without requiring specific files to exist
-		
+
 		path := installer.findClaudeConfigPath()
-		
+
 		// The method should either return an empty string (no config found) or a valid absolute path
 		if path != "" {
 			assert.True(t, filepath.IsAbs(path), "Config path should be absolute if not empty")
@@ -369,9 +369,9 @@ func TestInstalledHook(t *testing.T) {
 
 func TestHookConfig(t *testing.T) {
 	config := HookConfig{
-		Enabled:     true,
-		Version:     "1.0.0",
-		Customized:  false,
+		Enabled:    true,
+		Version:    "1.0.0",
+		Customized: false,
 		Environment: map[string]string{
 			"PORTGUARD_ENV": "production",
 		},

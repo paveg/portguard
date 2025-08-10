@@ -67,7 +67,7 @@ func TestPrintHooksInfo(t *testing.T) {
 		assert.Contains(t, output, "==================")
 		assert.Contains(t, output, "claude-integration - Basic Claude Code integration template")
 		assert.Contains(t, output, "advanced-hooks - Advanced hook configuration")
-		
+
 		assert.Contains(t, output, "Installed Hooks:")
 		assert.Contains(t, output, "================")
 		assert.Contains(t, output, "portguard-claude (1.0.0) - active")

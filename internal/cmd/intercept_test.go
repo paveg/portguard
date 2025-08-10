@@ -93,7 +93,7 @@ func createMockProcessManager() *process.ProcessManager {
 	mockStore := &mockStateStore{}
 	mockLock := &mockLockManager{}
 	mockScanner := &mockPortScanner{}
-	
+
 	// Set up mocks to return empty state (no conflicts)
 	mockStore.On("Load").Return(map[string]*process.ManagedProcess{}, nil)
 	mockStore.On("Save", mock.AnythingOfType("map[string]*process.ManagedProcess")).Return(nil)
@@ -101,7 +101,7 @@ func createMockProcessManager() *process.ProcessManager {
 	mockLock.On("Unlock").Return(nil)
 	mockLock.On("IsLocked").Return(false)
 	mockScanner.On("IsPortInUse", mock.AnythingOfType("int")).Return(false)
-	
+
 	return process.NewProcessManager(mockStore, mockLock, mockScanner)
 }
 
@@ -119,13 +119,13 @@ func executeInterceptCmd(t *testing.T, input string) (string, error) {
 	// Capture stdout for the handler
 	oldStdout := os.Stdout
 	defer func() { os.Stdout = oldStdout }()
-	
+
 	reader, writer, err := os.Pipe()
 	if err != nil {
 		return "", err
 	}
 	os.Stdout = writer
-	
+
 	// Capture output in a goroutine
 	var outputBuf bytes.Buffer
 	done := make(chan bool)
@@ -148,11 +148,11 @@ func executeInterceptCmd(t *testing.T, input string) (string, error) {
 		encoder := json.NewEncoder(os.Stdout)
 		_ = encoder.Encode(response)
 	}
-	
+
 	// Close write end and wait for output
 	writer.Close()
 	<-done
-	
+
 	return outputBuf.String(), nil
 }
 
@@ -182,8 +182,8 @@ func TestInterceptCommand_PreToolUse(t *testing.T) {
 	defer restoreFactory()
 
 	tests := []struct {
-		name           string
-		request        InterceptRequest
+		name            string
+		request         InterceptRequest
 		expectedProceed bool
 		expectedMessage string
 		expectError     bool
@@ -191,8 +191,8 @@ func TestInterceptCommand_PreToolUse(t *testing.T) {
 		{
 			name: "allow_non_server_command",
 			request: createTestInterceptRequest(
-				"preToolUse", 
-				"Bash", 
+				"preToolUse",
+				"Bash",
 				createBashParameters("ls -la"),
 				nil,
 			),
@@ -282,7 +282,7 @@ func TestInterceptCommand_PreToolUse(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.expectedProceed, response.Proceed)
-			
+
 			if tt.expectedMessage != "" {
 				assert.Contains(t, response.Message, tt.expectedMessage)
 			}
@@ -296,9 +296,9 @@ func TestInterceptCommand_PostToolUse(t *testing.T) {
 	defer restoreFactory()
 
 	tests := []struct {
-		name        string
-		request     InterceptRequest
-		expectError bool
+		name             string
+		request          InterceptRequest
+		expectError      bool
 		validateResponse func(*testing.T, string)
 	}{
 		{
@@ -319,7 +319,7 @@ func TestInterceptCommand_PostToolUse(t *testing.T) {
 				var response PostToolUseResponse
 				err := json.Unmarshal([]byte(output), &response)
 				require.NoError(t, err)
-				
+
 				assert.Equal(t, "success", response.Status)
 				assert.NotEmpty(t, response.Message)
 			},
@@ -342,7 +342,7 @@ func TestInterceptCommand_PostToolUse(t *testing.T) {
 				var response PostToolUseResponse
 				err := json.Unmarshal([]byte(output), &response)
 				require.NoError(t, err)
-				
+
 				assert.Equal(t, "error", response.Status)
 			},
 		},
@@ -364,7 +364,7 @@ func TestInterceptCommand_PostToolUse(t *testing.T) {
 				var response PostToolUseResponse
 				err := json.Unmarshal([]byte(output), &response)
 				require.NoError(t, err)
-				
+
 				assert.Equal(t, "success", response.Status)
 			},
 		},
@@ -386,7 +386,7 @@ func TestInterceptCommand_PostToolUse(t *testing.T) {
 				var response PostToolUseResponse
 				err := json.Unmarshal([]byte(output), &response)
 				require.NoError(t, err)
-				
+
 				assert.Equal(t, "success", response.Status)
 				// Note: In this simplified mock, we don't populate Data field
 				// In real implementation, this would contain process information
@@ -420,23 +420,23 @@ func TestInterceptCommand_InvalidEvents(t *testing.T) {
 	defer restoreFactory()
 
 	tests := []struct {
-		name      string
-		event     string
+		name        string
+		event       string
 		expectError bool
 	}{
 		{
-			name:      "unknown_event",
-			event:     "unknownEvent",
+			name:        "unknown_event",
+			event:       "unknownEvent",
 			expectError: true,
 		},
 		{
-			name:      "empty_event",
-			event:     "",
+			name:        "empty_event",
+			event:       "",
 			expectError: true,
 		},
 		{
-			name:      "misspelled_event",
-			event:     "preToolUs", // Missing 'e'
+			name:        "misspelled_event",
+			event:       "preToolUs", // Missing 'e'
 			expectError: true,
 		},
 	}
@@ -603,7 +603,7 @@ func TestInterceptCommand_JSONResponseFormat(t *testing.T) {
 
 		// Verify required fields are present (Proceed is a bool, just verify it's valid)
 		// Proceed should be either true or false (bools have default false in Go)
-		assert.NotNil(t, response.Message)   // Should be string, even if empty
+		assert.NotNil(t, response.Message) // Should be string, even if empty
 	})
 
 	t.Run("post_tool_use_response_format", func(t *testing.T) {
@@ -655,7 +655,7 @@ func TestInterceptCommand_ErrorHandling(t *testing.T) {
 		{
 			name:        "missing_required_fields",
 			input:       `{"event": "preToolUse"}`, // Missing tool_name and parameters
-			expectError: false, // Should handle gracefully
+			expectError: false,                     // Should handle gracefully
 			checkOutput: func(t *testing.T, output string) {
 				t.Helper()
 				assert.NotEmpty(t, output)
@@ -776,16 +776,16 @@ func TestOutputErrorResponse(t *testing.T) {
 
 	t.Run("output_error_response", func(t *testing.T) {
 		testErr := errors.New("test error message")
-		
+
 		outputErrorResponse(testErr)
-		
+
 		writer.Close()
 		output, _ := io.ReadAll(reader)
-		
+
 		var response PreToolUseResponse
 		err := json.Unmarshal(output, &response)
 		require.NoError(t, err)
-		
+
 		assert.True(t, response.Proceed) // Should fail open
 		assert.Contains(t, response.Message, "Hook error")
 		assert.Contains(t, response.Message, "test error message")
