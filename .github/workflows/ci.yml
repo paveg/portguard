@@ -163,8 +163,8 @@ jobs:
 
       - name: Test build artifacts
         run: |
-          ./build/portguard --version
-          ./build/portguard --help
+          ./bin/portguard --version
+          ./bin/portguard --help
 
   integration:
     name: Integration Tests
@@ -214,7 +214,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: portguard-binaries
-          path: build/
+          path: bin/
           retention-days: 30
 
   coverage-report:
