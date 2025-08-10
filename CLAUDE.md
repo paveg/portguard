@@ -111,4 +111,207 @@ JSON Response: {status: "success", message: "...", data: {...}}
 - Environment variable overrides (e.g., `PORTGUARD_BIN` for hooks)
 - Claude Code settings integration in `examples/claude-code-settings.json`
 
+## Coding Standards and Guidelines
+
+### Error Handling Requirements
+
+**ALWAYS check errors**: Never ignore error return values
+```go
+// ❌ Bad
+os.Remove(tempFile)
+
+// ✅ Good  
+if err := os.Remove(tempFile); err != nil {
+    log.Printf("failed to remove temp file: %v", err)
+}
+
+// ✅ Acceptable for cleanup (with explicit ignore)
+_ = os.Remove(tempFile) // Cleanup - errors are not critical
+```
+
+**Use errors.As for type assertions on errors**:
+```go
+// ❌ Bad
+if configErr, ok := err.(*viper.ConfigFileNotFoundError); ok {
+
+// ✅ Good
+var configErr viper.ConfigFileNotFoundError
+if errors.As(err, &configErr) {
+```
+
+**Wrap external package errors**:
+```go
+// ❌ Bad
+return err
+
+// ✅ Good
+return fmt.Errorf("failed to parse config: %w", err)
+```
+
+### Test Code Standards
+
+**Import restrictions**: Test files should not import production dependencies unnecessarily
+- Avoid importing `cobra` and `viper` in tests unless testing those specific integrations
+- Use dependency injection and mocks instead
+
+**Use proper assertion methods**:
+```go
+// ❌ Bad
+assert.Equal(t, "", value)           // Use assert.Empty
+assert.Equal(t, nil, err)            // Use assert.NoError
+assert.NotNil(t, err)               // Use assert.Error
+
+// ✅ Good  
+assert.Empty(t, value)
+assert.NoError(t, err)
+assert.Error(t, err)
+assert.ErrorIs(t, err, expectedErr)
+```
+
+**Use require for critical assertions**:
+```go
+// ❌ Bad - test continues if this fails
+assert.NoError(t, err)
+result := processResult() // might panic if err != nil
+
+// ✅ Good - test stops if this fails
+require.NoError(t, err)
+result := processResult()
+```
+
+**Use context with exec.Command**:
+```go
+// ❌ Bad
+cmd := exec.Command("git", "status")
+
+// ✅ Good
+ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+defer cancel()
+cmd := exec.CommandContext(ctx, "git", "status")
+```
+
+**Avoid variable shadowing**:
+```go
+// ❌ Bad
+func TestSomething(t *testing.T) {
+    port := 3000
+    for _, tt := range tests {
+        port, err := strconv.Atoi(tt.port) // shadows outer port
+    }
+}
+
+// ✅ Good
+func TestSomething(t *testing.T) {
+    defaultPort := 3000
+    for _, tt := range tests {
+        port, err := strconv.Atoi(tt.port)
+    }
+}
+```
+
+### Variable Naming
+
+**Use descriptive names for broader scopes**:
+```go
+// ❌ Bad - too short for scope
+func processData() {
+    r, w, _ := os.Pipe() // used for 20+ lines
+}
+
+// ✅ Good
+func processData() {
+    reader, writer, _ := os.Pipe()
+}
+```
+
+### Duration Handling
+
+**Use Go standard durations only**:
+```go
+// ❌ Bad - "d" is not a standard Go duration unit
+BackupRetention: "7d"
+
+// ✅ Good - use hours for days
+BackupRetention: "168h" // 7 days = 7 * 24 hours
+```
+
+### Configuration Standards  
+
+**Use appropriate types**:
+```go
+// ❌ Bad - magic numbers without constants
+if timeout < 30 {
+
+// ✅ Good - define constants
+const DefaultTimeout = 30 * time.Second
+if timeout < DefaultTimeout {
+```
+
+**Provide sensible defaults**:
+```go
+// ✅ All config fields should have reasonable defaults
+viper.SetDefault("default.health_check.timeout", "30s")
+viper.SetDefault("default.cleanup.max_idle_time", "1h")
+```
+
+### JSON API Standards
+
+**Use consistent response structures**:
+```go
+type APIResponse struct {
+    Success bool        `json:"success"`
+    Message string      `json:"message,omitempty"`
+    Data    interface{} `json:"data,omitempty"`
+    Error   string      `json:"error,omitempty"`
+}
+```
+
+**Use snake_case for JSON fields**:
+```go
+type Config struct {
+    MaxIdleTime time.Duration `json:"max_idle_time"`
+    AutoCleanup bool          `json:"auto_cleanup"`
+}
+```
+
+### Security Requirements
+
+**Never log or commit sensitive information**:
+- API keys, passwords, tokens should use environment variables
+- Sanitize user input in commands and file paths
+- Use secure file permissions (0600 for sensitive files, 0755 for directories)
+
+**Safe command execution**:
+```go
+// Validate and sanitize command arguments
+// Use absolute paths when possible
+// Set timeouts for external commands
+```
+
+### Performance Guidelines
+
+**Pre-allocate slices when size is known**:
+```go
+// ❌ Bad
+var items []string
+for range data {
+    items = append(items, process(item))
+}
+
+// ✅ Good  
+items := make([]string, 0, len(data))
+for range data {
+    items = append(items, process(item))
+}
+```
+
+## Mandatory Pre-Commit Checks
+
+Before any code changes:
+
+1. **Run tests**: `make test` must pass completely
+2. **Run linter**: `make lint` must show 0 issues  
+3. **Check coverage**: Maintain >70% test coverage
+4. **Verify integration**: `./hooks/test_hooks.sh` must pass
+
 When working on this codebase, focus on the ProcessManager as the central coordination point, and remember that all Claude Code integration must use the official hooks format with proper JSON request/response structures.
