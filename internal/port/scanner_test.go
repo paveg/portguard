@@ -390,7 +390,7 @@ func TestScanner_GetListeningPorts(t *testing.T) {
 	require.NotNil(t, ports)
 
 	// Should find at least some listening ports (system or our test port)
-	assert.Greater(t, len(ports), 0, "Should find at least one listening port")
+	assert.NotEmpty(t, ports, "Should find at least one listening port")
 	
 	foundPorts := make(map[int]bool)
 	foundTestPort := false
