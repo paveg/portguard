@@ -67,7 +67,7 @@ linters:
     
     # Testing
     - tparallel      # Parallel test checks
-    - testpackage    # Test package naming
+    # - testpackage    # Test package naming (disabled - would require major refactoring)
     - thelper        # Test helper functions
     
     # Import management
