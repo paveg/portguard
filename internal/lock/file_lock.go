@@ -40,16 +40,10 @@ func NewFileLock(lockFile string, timeout time.Duration) *FileLock {
 	// This prevents collisions when multiple instances are created rapidly
 	counter := atomic.AddUint64(&instanceCounter, 1)
 	
-	// Use safe conversion - UnixNano() returns positive nanoseconds since 1970
+	// UnixNano() is always non-negative since Unix epoch, but cast carefully
 	now := time.Now().UnixNano()
-	var instanceID uint64
-	if now >= 0 {
-		// Safe conversion for positive values
-		instanceID = (uint64(now) << 16) | (counter & 0xFFFF)
-	} else {
-		// Fallback to just counter for negative values (very unlikely)
-		instanceID = counter
-	}
+	//nolint:gosec // UnixNano() is always positive since 1970, safe to cast
+	instanceID := (uint64(now) << 16) | (counter & 0xFFFF)
 	
 	return &FileLock{
 		lockFile:    lockFile,

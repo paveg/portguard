@@ -1,6 +1,7 @@
 package port
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"runtime"
@@ -24,8 +25,9 @@ const (
 func findTestPort(t *testing.T) int {
 	t.Helper()
 	
-	//nolint:noctx // Test helper function, context not critical
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	// Use context.Background() for better practice
+	var lc net.ListenConfig
+	listener, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	defer func() {
 		//nolint:errcheck // Test cleanup can fail

@@ -185,14 +185,6 @@ func (s *Scanner) GetListeningPorts() ([]process.PortInfo, error) {
 		}
 	}
 
-	// Also scan test port range (30000-35000) to support tests
-	for port := 30000; port <= 35000; port++ {
-		if s.IsPortInUse(port) {
-			if portInfo, err := s.GetPortInfo(port); err == nil {
-				result = append(result, *portInfo)
-			}
-		}
-	}
 
 	// Scan ephemeral port range (system-assigned ports) - common range is 49152-65535
 	// For efficiency, scan a smaller range where most dynamic ports are assigned

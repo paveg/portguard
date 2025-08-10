@@ -193,7 +193,6 @@ func TestFileLock_ConcurrentLocking(t *testing.T) {
 				require.NoError(t, err)
 				defer func() {
 					//nolint:errcheck // Test cleanup can fail
-					//nolint:errcheck // Test cleanup can fail
 					_ = fileLock1.Unlock()
 				}()
 
