@@ -1,0 +1,7 @@
+{
+  "event": "preToolUse",
+  "tool": "Bash",
+  "parameters": {
+    "command": "npm run dev"
+  }
+}
