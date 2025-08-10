@@ -56,7 +56,8 @@ func SetProcessManagerFactory(factory func() *process.ProcessManager) func() {
 // InterceptRequest represents the official Claude Code hook request format
 type InterceptRequest struct {
 	Event      string                 `json:"event"`            // "preToolUse" or "postToolUse"
-	ToolName   string                 `json:"tool_name"`        // e.g., "Bash"
+	ToolName   string                 `json:"tool_name"`        // e.g., "Bash" (official field)
+	Tool       string                 `json:"tool"`             // e.g., "Bash" (alternative field)
 	Parameters map[string]interface{} `json:"parameters"`       // Tool parameters
 	Result     *ToolResult            `json:"result,omitempty"` // For postToolUse
 	SessionID  string                 `json:"session_id,omitempty"`
@@ -130,8 +131,14 @@ func handlePreToolUse(request *InterceptRequest) {
 		Data:    make(map[string]interface{}),
 	}
 
+	// Get tool name from either field
+	toolName := request.ToolName
+	if toolName == "" {
+		toolName = request.Tool
+	}
+
 	// Only intercept Bash commands
-	if request.ToolName != "Bash" {
+	if toolName != "Bash" && toolName != "bash" {
 		response.Message = "Non-Bash tool, allowing"
 		outputJSON(response)
 		return

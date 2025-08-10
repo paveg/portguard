@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/paveg/portguard/internal/process"
 )
 
 var cleanCmd = &cobra.Command{
@@ -15,19 +16,48 @@ Use with caution as this will terminate all processes managed by portguard.
 Examples:
   portguard clean --dry-run
   portguard clean --force`,
-	Run: func(cmd *cobra.Command, args []string) {
-		if dryRun {
-			fmt.Println("Dry run mode - showing what would be cleaned:")
-		} else {
-			fmt.Println("Cleaning up all managed processes...")
+	RunE: func(cmd *cobra.Command, args []string) error {
+		// Initialize process manager
+		pm, err := initializeProcessManager()
+		if err != nil {
+			return fmt.Errorf("failed to initialize process manager: %w", err)
 		}
 
+		if dryRun {
+			fmt.Println("Dry run mode - showing what would be cleaned:")
+			
+			// Show what would be cleaned
+			options := process.ProcessListOptions{
+				IncludeStopped: true,
+			}
+			
+			processes := pm.ListProcesses(options)
+			stoppedCount := 0
+			
+			for _, proc := range processes {
+				if proc.Status == "stopped" || proc.Status == "failed" {
+					stoppedCount++
+					fmt.Printf("  - Process %s (%s): %s\n", proc.ID[:8], proc.Status, proc.Command)
+				}
+			}
+			
+			fmt.Printf("\nWould clean up %d stopped/failed process(es)\n", stoppedCount)
+			return nil
+		}
+		
+		fmt.Println("Cleaning up all managed processes...")
+		
 		if force {
 			fmt.Println("Force cleanup enabled")
 		}
 
-		// TODO: Implement actual cleanup logic
-		fmt.Println("Cleanup not yet implemented")
+		// Perform cleanup
+		if err := pm.CleanupProcesses(force); err != nil {
+			return fmt.Errorf("cleanup failed: %w", err)
+		}
+		
+		fmt.Println("✅ Cleanup completed successfully")
+		return nil
 	},
 }
 
