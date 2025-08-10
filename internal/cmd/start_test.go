@@ -24,7 +24,7 @@ func TestStartCommand_Structure(t *testing.T) {
 		require.NotNil(t, portFlag)
 		assert.Equal(t, "p", portFlag.Shorthand)
 
-		// Check for background flag  
+		// Check for background flag
 		bgFlag := startCmd.Flags().Lookup("background")
 		require.NotNil(t, bgFlag)
 		assert.Equal(t, "b", bgFlag.Shorthand)
@@ -154,7 +154,7 @@ func TestParseHealthCheck(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := parseHealthCheck(tt.input)
 			require.NoError(t, err)
-			
+
 			if tt.expected == nil {
 				assert.Nil(t, result)
 			} else {
@@ -175,10 +175,10 @@ func TestInitializeProcessManager(t *testing.T) {
 
 	t.Run("creates_process_manager_successfully", func(t *testing.T) {
 		pm, err := initializeProcessManager()
-		
+
 		require.NoError(t, err)
 		assert.NotNil(t, pm)
-		
+
 		// Check that directories were created
 		portguardDir := filepath.Join(tempDir, ".portguard")
 		assert.DirExists(t, portguardDir)
@@ -189,9 +189,9 @@ func TestInitializeProcessManager(t *testing.T) {
 		portguardDir := filepath.Join(tempDir, ".portguard")
 		err := os.MkdirAll(portguardDir, 0o755)
 		require.NoError(t, err)
-		
+
 		pm, err := initializeProcessManager()
-		
+
 		require.NoError(t, err)
 		assert.NotNil(t, pm)
 	})
@@ -201,7 +201,7 @@ func TestHealthCheckTypes(t *testing.T) {
 	t.Run("health_check_type_constants", func(t *testing.T) {
 		// Ensure the constants we're using exist
 		assert.Equal(t, process.HealthCheckHTTP, process.HealthCheckType("http"))
-		assert.Equal(t, process.HealthCheckTCP, process.HealthCheckType("tcp"))  
+		assert.Equal(t, process.HealthCheckTCP, process.HealthCheckType("tcp"))
 		assert.Equal(t, process.HealthCheckCommand, process.HealthCheckType("command"))
 	})
 }
