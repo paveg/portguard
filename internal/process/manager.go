@@ -12,7 +12,6 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -299,10 +298,8 @@ func (pm *ProcessManager) executeProcess(command string, args []string, options 
 		}
 	}
 
-	// Set up process group for signal management
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-	}
+	// Set up process group for signal management (platform-specific)
+	cmd.SysProcAttr = setSysProcAttr(nil)
 
 	// Set up log file if specified
 	if options.LogFile != "" {
@@ -376,8 +373,7 @@ func (pm *ProcessManager) monitorProcess(ctx context.Context, process *ManagedPr
 			return ctx.Err()
 		case <-ticker.C:
 			// Send signal 0 to check if process exists
-			err := osProcess.Signal(syscall.Signal(0))
-			if err != nil {
+			if !isProcessAlive(osProcess) {
 				// Process has stopped
 				//nolint:errcheck // Background monitoring, error logged elsewhere
 				_ = pm.updateProcessStatus(process.ID, StatusStopped)
@@ -421,7 +417,7 @@ func (pm *ProcessManager) terminateProcess(process *ManagedProcess, forceKill bo
 	}
 
 	// Check if process is still running before trying to terminate
-	if err := osProcess.Signal(syscall.Signal(0)); err != nil {
+	if !isProcessAlive(osProcess) {
 		// Process is already dead - update status and return success since goal is achieved
 		process.Status = StatusStopped
 		process.UpdatedAt = time.Now()
@@ -432,7 +428,7 @@ func (pm *ProcessManager) terminateProcess(process *ManagedProcess, forceKill bo
 	// Try graceful termination first
 	//nolint:nestif // Complex termination logic with graceful fallback is necessary
 	if !forceKill {
-		if err := osProcess.Signal(syscall.SIGTERM); err != nil {
+		if err := terminateProcess(osProcess); err != nil {
 			// If SIGTERM fails, the process might already be gone
 			if err.Error() == "os: process already finished" {
 				process.Status = StatusStopped
@@ -446,7 +442,7 @@ func (pm *ProcessManager) terminateProcess(process *ManagedProcess, forceKill bo
 			time.Sleep(2 * time.Second)
 
 			// Check if process still exists
-			if err := osProcess.Signal(syscall.Signal(0)); err == nil {
+			if isProcessAlive(osProcess) {
 				// Process still running, force kill
 				forceKill = true
 			}
@@ -558,7 +554,7 @@ func (pm *ProcessManager) runHealthCheck(process *ManagedProcess) error {
 	// For now, just assume the process is healthy if it's running
 	if process.PID > 0 {
 		if osProcess, err := os.FindProcess(process.PID); err == nil {
-			if err := osProcess.Signal(syscall.Signal(0)); err == nil {
+			if isProcessAlive(osProcess) {
 				return nil // Process is running, consider it healthy
 			}
 		}
