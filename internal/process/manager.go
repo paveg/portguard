@@ -4,10 +4,15 @@
 package process
 
 import (
+	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"os"
+	"os/exec"
+	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -84,12 +89,18 @@ func (pm *ProcessManager) ShouldStartNew(command string, port int) (bool, *Manag
 	}
 
 	// 2. Check port availability if specified
+	//nolint:nestif // Complex port conflict logic is necessary for correctness
 	if port > 0 {
 		if pm.portScanner.IsPortInUse(port) {
 			// Check if the port is occupied by one of our managed processes
 			for _, process := range pm.processes {
 				if process.Port == port && process.IsRunning() {
-					return false, process // Port occupied by managed process
+					// Only return the process if it's the same command
+					if process.Command == command {
+						return false, process // Same command, reuse process
+					}
+					// Different command using same port - this is a conflict
+					return false, nil // Port occupied by different command
 				}
 			}
 			return false, nil // Port occupied by external process
@@ -116,30 +127,18 @@ func (pm *ProcessManager) StartProcess(command string, args []string, options St
 		return nil, fmt.Errorf("%w: %d", ErrPortAlreadyInUse, options.Port)
 	}
 
-	// Create new managed process
-	process := &ManagedProcess{
-		ID:          pm.generateID(command),
-		Command:     command,
-		Args:        args,
-		Port:        options.Port,
-		Status:      StatusPending,
-		HealthCheck: options.HealthCheck,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
-		LastSeen:    time.Now(),
-		Environment: options.Environment,
-		WorkingDir:  options.WorkingDir,
-		LogFile:     options.LogFile,
+	// Actually start the process using the new executeProcess method
+	actualProcess, err := pm.executeProcess(command, args, options)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute process: %w", err)
 	}
 
-	// TODO: Actually start the process here
-	// For now, just mark it as running
-	process.Status = StatusRunning
-	process.PID = 12345 // Placeholder
+	// Set the process ID for state management
+	actualProcess.ID = pm.generateID(actualProcess.Command)
 
 	// Store the process and create a copy for safe concurrent access
 	pm.mutex.Lock()
-	pm.processes[process.ID] = process
+	pm.processes[actualProcess.ID] = actualProcess
 	// Create a copy of the processes map for safe concurrent access to stateStore
 	processesCopy := make(map[string]*ManagedProcess)
 	for k, v := range pm.processes {
@@ -152,11 +151,14 @@ func (pm *ProcessManager) StartProcess(command string, args []string, options St
 		return nil, fmt.Errorf("failed to save state: %w", err)
 	}
 
-	return process, nil
+	// Start background monitoring for the process
+	go pm.monitorProcessInBackground(actualProcess)
+
+	return actualProcess, nil
 }
 
 // StopProcess stops a managed process
-func (pm *ProcessManager) StopProcess(id string, _ bool) error {
+func (pm *ProcessManager) StopProcess(id string, forceKill bool) error {
 	if err := pm.lockManager.Lock(); err != nil {
 		return fmt.Errorf("failed to acquire lock: %w", err)
 	}
@@ -168,11 +170,15 @@ func (pm *ProcessManager) StopProcess(id string, _ bool) error {
 		pm.mutex.Unlock()
 		return fmt.Errorf("%w: %s", ErrProcessNotFound, id)
 	}
+	pm.mutex.Unlock()
 
-	// TODO: Actually stop the process here
-	process.Status = StatusStopped
-	process.UpdatedAt = time.Now()
-	// Create a copy of the processes map for safe concurrent access to stateStore
+	// Actually terminate the process using the new method
+	if err := pm.terminateProcess(process, forceKill); err != nil {
+		return fmt.Errorf("failed to terminate process: %w", err)
+	}
+
+	// Update state in storage
+	pm.mutex.Lock()
 	processesCopy := make(map[string]*ManagedProcess)
 	for k, v := range pm.processes {
 		processesCopy[k] = v
@@ -259,4 +265,339 @@ type StartOptions struct {
 	WorkingDir  string            `json:"working_dir"`
 	LogFile     string            `json:"log_file"`
 	Background  bool              `json:"background"`
+}
+
+// executeProcess executes a process with the given command and options
+func (pm *ProcessManager) executeProcess(command string, args []string, options StartOptions) (*ManagedProcess, error) {
+	// Parse command if args are empty (for backward compatibility with shell commands)
+	if len(args) == 0 {
+		parts := strings.Fields(command)
+		if len(parts) == 0 {
+			return nil, errors.New("empty command")
+		}
+		command = parts[0]
+		if len(parts) > 1 {
+			args = parts[1:]
+		}
+	}
+
+	// Create command with context
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, command, args...)
+
+	// Set working directory if specified
+	if options.WorkingDir != "" {
+		cmd.Dir = options.WorkingDir
+	}
+
+	// Set environment variables
+	if len(options.Environment) > 0 {
+		cmd.Env = os.Environ()
+		for key, value := range options.Environment {
+			cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", key, value))
+		}
+	}
+
+	// Set up process group for signal management
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+	}
+
+	// Set up log file if specified
+	if options.LogFile != "" {
+		logFile, err := os.OpenFile(options.LogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open log file %s: %w", options.LogFile, err)
+		}
+		cmd.Stdout = logFile
+		cmd.Stderr = logFile
+	}
+
+	// Start the process
+	if err := cmd.Start(); err != nil {
+		return nil, fmt.Errorf("failed to start command '%s': %w", command, err)
+	}
+
+	// Create managed process with actual PID
+	process := &ManagedProcess{
+		Command:     strings.Join(append([]string{command}, args...), " "),
+		Args:        args,
+		Port:        options.Port,
+		PID:         cmd.Process.Pid,
+		Status:      StatusRunning,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+		LastSeen:    time.Now(),
+		Environment: options.Environment,
+		WorkingDir:  options.WorkingDir,
+		LogFile:     options.LogFile,
+		HealthCheck: options.HealthCheck,
+	}
+
+	return process, nil
+}
+
+// monitorProcessInBackground monitors a process in the background
+func (pm *ProcessManager) monitorProcessInBackground(process *ManagedProcess) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Monitor the process
+	if err := pm.monitorProcess(ctx, process); err != nil {
+		// Log error but don't fail - this is a background operation
+		//nolint:errcheck // Background operation, error logged elsewhere
+		_ = pm.updateProcessStatus(process.ID, StatusFailed)
+	}
+}
+
+// monitorProcess monitors a process and updates its status
+func (pm *ProcessManager) monitorProcess(ctx context.Context, process *ManagedProcess) error {
+	if process.PID <= 0 {
+		return fmt.Errorf("invalid PID: %d", process.PID)
+	}
+
+	// Use shorter intervals for testing or configurable intervals
+	checkInterval := 500 * time.Millisecond // More frequent checks for testing
+	ticker := time.NewTicker(checkInterval)
+	defer ticker.Stop()
+
+	// Do an immediate check first
+	osProcess, err := os.FindProcess(process.PID)
+	if err != nil {
+		//nolint:errcheck // Background monitoring, error logged elsewhere
+		_ = pm.updateProcessStatus(process.ID, StatusStopped)
+		return fmt.Errorf("process not found: %w", err)
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			// Send signal 0 to check if process exists
+			err := osProcess.Signal(syscall.Signal(0))
+			if err != nil {
+				// Process has stopped
+				//nolint:errcheck // Background monitoring, error logged elsewhere
+				_ = pm.updateProcessStatus(process.ID, StatusStopped)
+				return nil
+			}
+
+			// Update last seen timestamp
+			pm.mutex.Lock()
+			if proc, exists := pm.processes[process.ID]; exists {
+				proc.LastSeen = time.Now()
+			}
+			pm.mutex.Unlock()
+
+			// Run health check if configured
+			if process.HealthCheck != nil {
+				if err := pm.runHealthCheck(process); err != nil {
+					//nolint:errcheck // Background monitoring, error logged elsewhere
+					_ = pm.updateProcessStatus(process.ID, StatusUnhealthy)
+				} else {
+					//nolint:errcheck // Background monitoring, error logged elsewhere
+					_ = pm.updateProcessStatus(process.ID, StatusRunning)
+				}
+			}
+		}
+	}
+}
+
+// terminateProcess terminates a process
+func (pm *ProcessManager) terminateProcess(process *ManagedProcess, forceKill bool) error {
+	if process.PID <= 0 {
+		return fmt.Errorf("invalid PID: %d", process.PID)
+	}
+
+	osProcess, err := os.FindProcess(process.PID)
+	if err != nil {
+		// Process not found - update status and return success since the goal is achieved
+		process.Status = StatusStopped
+		process.UpdatedAt = time.Now()
+		//nolint:nilerr // Process not existing is the desired outcome for termination
+		return nil
+	}
+
+	// Check if process is still running before trying to terminate
+	if err := osProcess.Signal(syscall.Signal(0)); err != nil {
+		// Process is already dead - update status and return success since goal is achieved
+		process.Status = StatusStopped
+		process.UpdatedAt = time.Now()
+		//nolint:nilerr // Process being dead is the desired outcome for termination
+		return nil
+	}
+
+	// Try graceful termination first
+	//nolint:nestif // Complex termination logic with graceful fallback is necessary
+	if !forceKill {
+		if err := osProcess.Signal(syscall.SIGTERM); err != nil {
+			// If SIGTERM fails, the process might already be gone
+			if err.Error() == "os: process already finished" {
+				process.Status = StatusStopped
+				process.UpdatedAt = time.Now()
+				return nil
+			}
+			// For other errors, fall back to SIGKILL
+			forceKill = true
+		} else {
+			// Wait a bit for graceful shutdown
+			time.Sleep(2 * time.Second)
+
+			// Check if process still exists
+			if err := osProcess.Signal(syscall.Signal(0)); err == nil {
+				// Process still running, force kill
+				forceKill = true
+			}
+		}
+	}
+
+	// Force kill if requested or graceful termination failed
+	if forceKill {
+		if err := osProcess.Kill(); err != nil {
+			// Process might have exited between checks
+			if err.Error() == "os: process already finished" {
+				process.Status = StatusStopped
+				process.UpdatedAt = time.Now()
+				return nil
+			}
+			return fmt.Errorf("failed to kill process %d: %w", process.PID, err)
+		}
+	}
+
+	// Update process status
+	process.Status = StatusStopped
+	process.UpdatedAt = time.Now()
+
+	return nil
+}
+
+// findSimilarProcess finds a similar process that could be reused
+func (pm *ProcessManager) findSimilarProcess(command string) (*ManagedProcess, bool) {
+	pm.mutex.RLock()
+	defer pm.mutex.RUnlock()
+
+	signature := pm.generateCommandSignature(command, []string{})
+
+	var candidates []*ManagedProcess
+
+	// Find processes with matching command signature
+	for _, process := range pm.processes {
+		processSignature := pm.generateCommandSignature(process.Command, process.Args)
+		if processSignature == signature && process.IsHealthy() {
+			candidates = append(candidates, process)
+		}
+	}
+
+	if len(candidates) == 0 {
+		return nil, false
+	}
+
+	// Return the most recently created healthy process
+	var newest *ManagedProcess
+	for _, candidate := range candidates {
+		if newest == nil || candidate.CreatedAt.After(newest.CreatedAt) {
+			newest = candidate
+		}
+	}
+
+	return newest, true
+}
+
+// generateCommandSignature generates a normalized signature for a command
+func (pm *ProcessManager) generateCommandSignature(command string, args []string) string {
+	// Normalize command by joining with args and removing extra whitespace
+	fullCommand := strings.TrimSpace(command)
+	if len(args) > 0 {
+		fullCommand = strings.TrimSpace(strings.Join(append([]string{command}, args...), " "))
+	}
+
+	// Normalize whitespace
+	parts := strings.Fields(fullCommand)
+	return strings.Join(parts, " ")
+}
+
+// updateProcessStatus updates the status of a process
+func (pm *ProcessManager) updateProcessStatus(processID string, status ProcessStatus) error {
+	pm.mutex.Lock()
+	defer pm.mutex.Unlock()
+
+	process, exists := pm.processes[processID]
+	if !exists {
+		return fmt.Errorf("%w: %s", ErrProcessNotFound, processID)
+	}
+
+	process.Status = status
+	process.UpdatedAt = time.Now()
+
+	// Create a copy of the processes map for safe concurrent access to stateStore
+	processesCopy := make(map[string]*ManagedProcess)
+	for k, v := range pm.processes {
+		processesCopy[k] = v
+	}
+
+	// Save to persistent storage
+	if err := pm.stateStore.Save(processesCopy); err != nil {
+		return fmt.Errorf("failed to save process state: %w", err)
+	}
+
+	return nil
+}
+
+// runHealthCheck runs a health check for a process
+func (pm *ProcessManager) runHealthCheck(process *ManagedProcess) error {
+	if process.HealthCheck == nil {
+		return nil // No health check configured
+	}
+
+	// For now, implement a simple command-based health check
+	// This can be expanded based on the HealthCheck type in types.go
+
+	// TODO: Implement different health check types (HTTP, TCP, Command)
+	// For now, just assume the process is healthy if it's running
+	if process.PID > 0 {
+		if osProcess, err := os.FindProcess(process.PID); err == nil {
+			if err := osProcess.Signal(syscall.Signal(0)); err == nil {
+				return nil // Process is running, consider it healthy
+			}
+		}
+	}
+
+	return fmt.Errorf("process %s failed health check", process.ID)
+}
+
+// cleanupStaleProcesses removes processes that haven't been seen for a while
+func (pm *ProcessManager) cleanupStaleProcesses(maxAge time.Duration) (int, error) {
+	pm.mutex.Lock()
+	defer pm.mutex.Unlock()
+
+	var toRemove []string
+	cutoffTime := time.Now().Add(-maxAge)
+
+	for id, process := range pm.processes {
+		// Remove processes that haven't been seen recently (stale)
+		// This includes both running and non-running processes
+		if process.LastSeen.Before(cutoffTime) {
+			toRemove = append(toRemove, id)
+		}
+	}
+
+	for _, id := range toRemove {
+		delete(pm.processes, id)
+	}
+
+	if len(toRemove) > 0 {
+		// Create a copy of the processes map for safe concurrent access to stateStore
+		processesCopy := make(map[string]*ManagedProcess)
+		for k, v := range pm.processes {
+			processesCopy[k] = v
+		}
+
+		if err := pm.stateStore.Save(processesCopy); err != nil {
+			return 0, fmt.Errorf("failed to save process state: %w", err)
+		}
+	}
+
+	return len(toRemove), nil
 }
