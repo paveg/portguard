@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/spf13/cobra"
 	"github.com/paveg/portguard/internal/process"
+	"github.com/spf13/cobra"
 )
 
 var listCmd = &cobra.Command{
@@ -44,7 +44,7 @@ Examples:
 				"processes": processes,
 				"total":     len(processes),
 			}
-			
+
 			output, err := json.MarshalIndent(data, "", "  ")
 			if err != nil {
 				return fmt.Errorf("failed to marshal JSON: %w", err)
@@ -60,21 +60,21 @@ Examples:
 		}
 
 		fmt.Printf("Found %d process(es):\n\n", len(processes))
-		
+
 		// Table header
 		fmt.Printf("%-10s %-8s %-10s %-6s %-s\n", "ID", "PID", "STATUS", "PORT", "COMMAND")
 		fmt.Println("------------------------------------------------------------------------")
-		
+
 		for _, proc := range processes {
 			portStr := "-"
 			if proc.Port > 0 {
 				portStr = strconv.Itoa(proc.Port)
 			}
-			
-			fmt.Printf("%-10s %-8d %-10s %-6s %-s\n", 
+
+			fmt.Printf("%-10s %-8d %-10s %-6s %-s\n",
 				proc.ID[:8], proc.PID, proc.Status, portStr, proc.Command)
 		}
-		
+
 		return nil
 	},
 }

@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/paveg/portguard/internal/lock"
 	portpkg "github.com/paveg/portguard/internal/port"
 	"github.com/paveg/portguard/internal/process"
 	"github.com/paveg/portguard/internal/state"
+	"github.com/spf13/cobra"
 )
 
 var startCmd = &cobra.Command{
@@ -110,7 +110,7 @@ func initializeProcessManager() (*process.ProcessManager, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user home directory: %w", err)
 	}
-	
+
 	// Create .portguard directory if it doesn't exist
 	portguardDir := filepath.Join(homeDir, ".portguard")
 	if mkdirErr := os.MkdirAll(portguardDir, 0o755); mkdirErr != nil {

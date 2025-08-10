@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
 	"github.com/paveg/portguard/internal/process"
+	"github.com/spf13/cobra"
 )
 
 var cleanCmd = &cobra.Command{
@@ -25,28 +25,28 @@ Examples:
 
 		if dryRun {
 			fmt.Println("Dry run mode - showing what would be cleaned:")
-			
+
 			// Show what would be cleaned
 			options := process.ProcessListOptions{
 				IncludeStopped: true,
 			}
-			
+
 			processes := pm.ListProcesses(options)
 			stoppedCount := 0
-			
+
 			for _, proc := range processes {
 				if proc.Status == "stopped" || proc.Status == "failed" {
 					stoppedCount++
 					fmt.Printf("  - Process %s (%s): %s\n", proc.ID[:8], proc.Status, proc.Command)
 				}
 			}
-			
+
 			fmt.Printf("\nWould clean up %d stopped/failed process(es)\n", stoppedCount)
 			return nil
 		}
-		
+
 		fmt.Println("Cleaning up all managed processes...")
-		
+
 		if force {
 			fmt.Println("Force cleanup enabled")
 		}
@@ -55,7 +55,7 @@ Examples:
 		if err := pm.CleanupProcesses(force); err != nil {
 			return fmt.Errorf("cleanup failed: %w", err)
 		}
-		
+
 		fmt.Println("✅ Cleanup completed successfully")
 		return nil
 	},

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/spf13/cobra"
 	"github.com/paveg/portguard/internal/process"
+	"github.com/spf13/cobra"
 )
 
 var stopCmd = &cobra.Command{
@@ -31,19 +31,19 @@ Examples:
 		// Check if target is a port number
 		if port, err := strconv.Atoi(target); err == nil {
 			fmt.Printf("Stopping process on port: %d\n", port)
-			
+
 			// Find processes by port
 			options := process.ProcessListOptions{
-				FilterByPort: port,
+				FilterByPort:   port,
 				IncludeStopped: false,
 			}
-			
+
 			processes := pm.ListProcesses(options)
 			if len(processes) == 0 {
 				fmt.Printf("No running processes found on port %d\n", port)
 				return nil
 			}
-			
+
 			// Stop all processes on this port
 			for _, proc := range processes {
 				if err := pm.StopProcess(proc.ID, force); err != nil {
@@ -54,19 +54,19 @@ Examples:
 			}
 		} else {
 			fmt.Printf("Stopping process with ID: %s\n", target)
-			
+
 			if force {
 				fmt.Println("Force stop enabled")
 			}
-			
+
 			// Stop by ID
 			if err := pm.StopProcess(target, force); err != nil {
 				return fmt.Errorf("failed to stop process %s: %w", target, err)
 			}
-			
+
 			fmt.Printf("✅ Process %s stopped successfully\n", target)
 		}
-		
+
 		return nil
 	},
 }
