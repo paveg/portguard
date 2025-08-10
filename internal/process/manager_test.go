@@ -89,11 +89,11 @@ func (m *mockPortScanner) FindAvailablePort(startPort int) (int, error) {
 // Helper function to create a test ProcessManager with mocks
 func setupTestProcessManager(t *testing.T) (*ProcessManager, *mockStateStore, *mockLockManager, *mockPortScanner) {
 	t.Helper()
-	
+
 	stateStore := &mockStateStore{}
 	lockManager := &mockLockManager{}
 	portScanner := &mockPortScanner{}
-	
+
 	pm := &ProcessManager{
 		processes:   make(map[string]*ManagedProcess),
 		mutex:       sync.RWMutex{},
@@ -101,7 +101,7 @@ func setupTestProcessManager(t *testing.T) (*ProcessManager, *mockStateStore, *m
 		lockManager: lockManager,
 		portScanner: portScanner,
 	}
-	
+
 	return pm, stateStore, lockManager, portScanner
 }
 
@@ -192,7 +192,7 @@ func TestProcessManager_ShouldStartNew(t *testing.T) {
 			if tt.existingProcess != nil && tt.existingProcess.Command == tt.command && tt.existingProcess.IsHealthy() {
 				needsPortCheck = false // Command match found first, port check skipped
 			}
-			
+
 			if needsPortCheck {
 				mockPortScanner.On("IsPortInUse", tt.port).Return(tt.portInUse)
 			}
@@ -216,22 +216,22 @@ func TestProcessManager_ShouldStartNew(t *testing.T) {
 
 func TestProcessManager_StartProcess(t *testing.T) {
 	tests := []struct {
-		name          string
-		command       string
-		args          []string
-		options       StartOptions
-		mockSetup     func(*mockStateStore, *mockLockManager, *mockPortScanner)
-		expectError   bool
+		name           string
+		command        string
+		args           []string
+		options        StartOptions
+		mockSetup      func(*mockStateStore, *mockLockManager, *mockPortScanner)
+		expectError    bool
 		validateResult func(*testing.T, *ManagedProcess)
 	}{
 		{
 			name:    "successful_process_start",
-			command: "npm run dev",
-			args:    []string{"run", "dev"},
+			command: "sleep",
+			args:    []string{"2"},
 			options: StartOptions{
 				Port:        3000,
 				Environment: map[string]string{"NODE_ENV": "development"},
-				WorkingDir:  "/tmp/test",
+				WorkingDir:  "/tmp",
 			},
 			mockSetup: func(stateStore *mockStateStore, lockManager *mockLockManager, portScanner *mockPortScanner) {
 				portScanner.On("IsPortInUse", 3000).Return(false)
@@ -242,11 +242,12 @@ func TestProcessManager_StartProcess(t *testing.T) {
 			expectError: false,
 			validateResult: func(t *testing.T, proc *ManagedProcess) {
 				t.Helper()
-				assert.Equal(t, "npm run dev", proc.Command)
+				assert.Equal(t, "sleep 2", proc.Command)
 				assert.Equal(t, 3000, proc.Port)
 				assert.Equal(t, StatusRunning, proc.Status)
 				assert.NotEmpty(t, proc.ID)
 				assert.False(t, proc.CreatedAt.IsZero())
+				assert.Positive(t, proc.PID) // Real PID should be > 0
 			},
 		},
 		{
@@ -262,8 +263,8 @@ func TestProcessManager_StartProcess(t *testing.T) {
 		},
 		{
 			name:    "state_save_failure",
-			command: "python app.py",
-			args:    []string{"app.py"},
+			command: "echo",
+			args:    []string{"test"},
 			options: StartOptions{Port: 5000},
 			mockSetup: func(stateStore *mockStateStore, lockManager *mockLockManager, portScanner *mockPortScanner) {
 				portScanner.On("IsPortInUse", 5000).Return(false)
@@ -291,6 +292,12 @@ func TestProcessManager_StartProcess(t *testing.T) {
 				require.NotNil(t, process)
 				if tt.validateResult != nil {
 					tt.validateResult(t, process)
+				}
+
+				// Clean up any running process
+				if process.PID > 0 {
+					//nolint:errcheck // Test cleanup, error not critical
+					_ = pm.StopProcess(process.ID, true)
 				}
 			}
 
@@ -372,7 +379,7 @@ func TestProcessManager_StopProcess(t *testing.T) {
 
 func TestProcessManager_GetProcess(t *testing.T) {
 	pm, _, _, _ := setupTestProcessManager(t)
-	
+
 	testProcess := createTestProcess("test-get", "test command", 9000, StatusRunning)
 	pm.processes[testProcess.ID] = testProcess
 
@@ -400,10 +407,10 @@ func TestProcessManager_ListProcesses(t *testing.T) {
 	pm.processes["unhealthy"] = unhealthyProcess
 
 	tests := []struct {
-		name           string
-		options        ProcessListOptions
-		expectedCount  int
-		expectedIDs    []string
+		name          string
+		options       ProcessListOptions
+		expectedCount int
+		expectedIDs   []string
 	}{
 		{
 			name:          "list_all_processes",
@@ -587,7 +594,7 @@ func TestProcessManager_generateID(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			id1 := pm.generateID(tt.command)
-			
+
 			// Add small delay to ensure different timestamp
 			time.Sleep(time.Microsecond)
 			id2 := pm.generateID(tt.command)
