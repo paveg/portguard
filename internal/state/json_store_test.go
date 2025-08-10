@@ -516,8 +516,7 @@ func TestJSONStore_GetMetadata(t *testing.T) {
 }
 
 func TestJSONStore_ConcurrentSaveLoad(t *testing.T) {
-	store, _, cleanup := setupTestJSONStore(t)
-	defer cleanup()
+	tmpDir := t.TempDir()
 
 	const numGoroutines = 3
 	const operationsPerGoroutine = 2
@@ -526,10 +525,25 @@ func TestJSONStore_ConcurrentSaveLoad(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(numGoroutines)
 	
-	// Concurrent save and load operations with proper synchronization
+	// Each goroutine uses its own JSONStore instance with separate subdirectory to avoid race conditions
 	for i := 0; i < numGoroutines; i++ {
 		go func(id int) {
 			defer wg.Done()
+			
+			// Create separate subdirectory for each goroutine to ensure complete isolation
+			goroutineDir := filepath.Join(tmpDir, fmt.Sprintf("goroutine_%d", id))
+			err := os.MkdirAll(goroutineDir, 0o755)
+			if err != nil {
+				t.Errorf("Failed to create directory for goroutine %d: %v", id, err)
+				return
+			}
+			
+			storePath := filepath.Join(goroutineDir, "test_state.json")
+			store, err := NewJSONStore(storePath)
+			if err != nil {
+				t.Errorf("Failed to create store for goroutine %d: %v", id, err)
+				return
+			}
 			
 			for j := 0; j < operationsPerGoroutine; j++ {
 				// Create unique process for this goroutine and iteration
@@ -538,21 +552,21 @@ func TestJSONStore_ConcurrentSaveLoad(t *testing.T) {
 					processID: createTestManagedProcess(processID, fmt.Sprintf("cmd-%d-%d", id, j), 3000+id*100+j, process.StatusRunning),
 				}
 
-				// Save - accept that some operations may fail due to race conditions
+				// Save operation
 				if err := store.Save(processes); err != nil {
-					t.Logf("Save error in goroutine %d iteration %d (expected in concurrent scenario): %v", id, j, err)
+					t.Errorf("Unexpected save error in goroutine %d iteration %d: %v", id, j, err)
 					continue
 				}
 
-				// Load - accept that some operations may fail due to race conditions
+				// Load operation
 				if loaded, err := store.Load(); err != nil {
-					t.Logf("Load error in goroutine %d iteration %d (expected in concurrent scenario): %v", id, j, err)
+					t.Errorf("Unexpected load error in goroutine %d iteration %d: %v", id, j, err)
 				} else if len(loaded) > 0 {
 					atomic.AddInt32(&successCount, 1)
 				}
 				
 				// Small delay to reduce contention
-				time.Sleep(10 * time.Millisecond)
+				time.Sleep(5 * time.Millisecond)
 			}
 		}(i)
 	}
@@ -560,18 +574,21 @@ func TestJSONStore_ConcurrentSaveLoad(t *testing.T) {
 	// Wait for all goroutines to complete
 	wg.Wait()
 
-	// Verify that at least some operations succeeded
+	// Verify that operations succeeded
 	assert.Positive(t, successCount, "At least some concurrent operations should succeed")
 	
-	// Final verification - ensure store is still functional after concurrent access
+	// Final verification - create a separate store to ensure functionality
+	finalStore, err := NewJSONStore(filepath.Join(tmpDir, "final_test.json"))
+	require.NoError(t, err)
+	
 	finalProcesses := map[string]*process.ManagedProcess{
 		"final_test": createTestManagedProcess("final_test", "final command", 9999, process.StatusRunning),
 	}
 	
-	err := store.Save(finalProcesses)
+	err = finalStore.Save(finalProcesses)
 	require.NoError(t, err)
 	
-	loaded, err := store.Load()
+	loaded, err := finalStore.Load()
 	require.NoError(t, err)
 	assert.Len(t, loaded, 1)
 	assert.Equal(t, "final_test", loaded["final_test"].ID)
