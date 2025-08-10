@@ -78,7 +78,7 @@ run_pretooluse_test() {
         fi
         
         # Pretty print the output for inspection
-        # echo "$output" | jq . 2>/dev/null || echo "$output"
+        echo "$output" | jq . 2>/dev/null || echo "$output"
         echo
     else
         log_error "$test_name - Hook execution failed"
@@ -120,7 +120,7 @@ run_posttooluse_test() {
         fi
         
         # Pretty print the output for inspection
-        # echo "$output" | jq . 2>/dev/null || echo "$output"
+        echo "$output" | jq . 2>/dev/null || echo "$output"
         echo
     else
         log_error "$test_name - Hook execution failed"
