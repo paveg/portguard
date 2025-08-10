@@ -30,8 +30,8 @@ type FileLock struct {
 	lockFile    string
 	lockTimeout time.Duration
 	locked      bool
-	instanceID  uint64        // Unique identifier for this instance
-	mu          sync.Mutex    // Protects locked field
+	instanceID  uint64     // Unique identifier for this instance
+	mu          sync.Mutex // Protects locked field
 }
 
 // NewFileLock creates a new file-based lock manager
@@ -39,12 +39,12 @@ func NewFileLock(lockFile string, timeout time.Duration) *FileLock {
 	// Generate unique instance ID combining timestamp with atomic counter
 	// This prevents collisions when multiple instances are created rapidly
 	counter := atomic.AddUint64(&instanceCounter, 1)
-	
+
 	// UnixNano() is always non-negative since Unix epoch, but cast carefully
 	now := time.Now().UnixNano()
 	//nolint:gosec // UnixNano() is always positive since 1970, safe to cast
 	instanceID := (uint64(now) << 16) | (counter & 0xFFFF)
-	
+
 	return &FileLock{
 		lockFile:    lockFile,
 		lockTimeout: timeout,

@@ -44,7 +44,7 @@ func SetProcessManagerFactory(factory func() *process.ProcessManager) func() {
 	original := processManagerFactory
 	processManagerFactory = factory
 	processManagerFactoryMu.Unlock()
-	
+
 	// Return restore function
 	return func() {
 		processManagerFactoryMu.Lock()
@@ -232,10 +232,10 @@ func isServerCommand(command string) bool {
 		// Node.js patterns
 		"npm run dev", "npm start", "yarn dev", "pnpm dev", "node .*\\.js",
 		"next dev", "vite", "webpack-dev-server",
-		// Go patterns  
+		// Go patterns
 		"go run.*\\.go",
 		// Python patterns
-		"python.*-m http\\.server", "python3.*-m http\\.server", 
+		"python.*-m http\\.server", "python3.*-m http\\.server",
 		"flask run", "python.*manage\\.py runserver", "uvicorn",
 		// Other server patterns
 		"hugo server", "jekyll serve", "php.*-S",
