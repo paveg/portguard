@@ -137,13 +137,18 @@ func (pm *ProcessManager) StartProcess(command string, args []string, options St
 	process.Status = StatusRunning
 	process.PID = 12345 // Placeholder
 
-	// Store the process
+	// Store the process and create a copy for safe concurrent access
 	pm.mutex.Lock()
 	pm.processes[process.ID] = process
+	// Create a copy of the processes map for safe concurrent access to stateStore
+	processesCopy := make(map[string]*ManagedProcess)
+	for k, v := range pm.processes {
+		processesCopy[k] = v
+	}
 	pm.mutex.Unlock()
 
-	// Persist to storage
-	if err := pm.stateStore.Save(pm.processes); err != nil {
+	// Persist to storage using the copy to avoid race conditions
+	if err := pm.stateStore.Save(processesCopy); err != nil {
 		return nil, fmt.Errorf("failed to save state: %w", err)
 	}
 
@@ -167,10 +172,15 @@ func (pm *ProcessManager) StopProcess(id string, _ bool) error {
 	// TODO: Actually stop the process here
 	process.Status = StatusStopped
 	process.UpdatedAt = time.Now()
+	// Create a copy of the processes map for safe concurrent access to stateStore
+	processesCopy := make(map[string]*ManagedProcess)
+	for k, v := range pm.processes {
+		processesCopy[k] = v
+	}
 	pm.mutex.Unlock()
 
-	// Persist to storage
-	if err := pm.stateStore.Save(pm.processes); err != nil {
+	// Persist to storage using the copy to avoid race conditions
+	if err := pm.stateStore.Save(processesCopy); err != nil {
 		return fmt.Errorf("failed to save process state: %w", err)
 	}
 	return nil
@@ -229,7 +239,13 @@ func (pm *ProcessManager) CleanupProcesses(force bool) error {
 		delete(pm.processes, id)
 	}
 
-	if err := pm.stateStore.Save(pm.processes); err != nil {
+	// Create a copy of the processes map for safe concurrent access to stateStore
+	processesCopy := make(map[string]*ManagedProcess)
+	for k, v := range pm.processes {
+		processesCopy[k] = v
+	}
+
+	if err := pm.stateStore.Save(processesCopy); err != nil {
 		return fmt.Errorf("failed to save process state: %w", err)
 	}
 	return nil
