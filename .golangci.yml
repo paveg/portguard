@@ -214,6 +214,7 @@ linters:
           allow:
             - $gostd
             - github.com/stretchr/testify
+            - github.com/spf13/viper  # Allow viper in tests for config testing
             - github.com/paveg/portguard
 
     testifylint:
