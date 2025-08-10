@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/spf13/cobra"
 	"github.com/paveg/portguard/internal/process"
@@ -67,7 +68,7 @@ Examples:
 		for _, proc := range processes {
 			portStr := "-"
 			if proc.Port > 0 {
-				portStr = fmt.Sprintf("%d", proc.Port)
+				portStr = strconv.Itoa(proc.Port)
 			}
 			
 			fmt.Printf("%-10s %-8d %-10s %-6s %-s\n", 
