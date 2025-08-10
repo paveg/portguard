@@ -379,40 +379,47 @@ func TestScanner_ScanRange(t *testing.T) {
 func TestScanner_GetListeningPorts(t *testing.T) {
 	scanner := NewScanner(defaultTimeout)
 
-	// Create a test server on a well-known high port
-	port1 := findTestPort(t)
+	// Create a test server on a port within the common range that GetListeningPorts() scans
+	// Use 3000 (first common port) but find an available port near it to avoid conflicts
+	testPort := 3000
+	for scanner.IsPortInUse(testPort) && testPort < 3010 {
+		testPort++
+	}
 	
-	_, cleanup1 := createTestServer(t, port1)
+	// Skip test if no available ports in the common range
+	if scanner.IsPortInUse(testPort) {
+		t.Skip("No available ports in common range for testing")
+	}
+	
+	_, cleanup1 := createTestServer(t, testPort)
 	defer cleanup1()
 
 	ports, err := scanner.GetListeningPorts()
 	require.NoError(t, err)
 	require.NotNil(t, ports)
 
-	// Should find at least some listening ports (system or our test port)
-	assert.NotEmpty(t, ports, "Should find at least one listening port")
-	
-	foundPorts := make(map[int]bool)
+	// Log information for debugging CI issues
 	foundTestPort := false
 	for _, portInfo := range ports {
-		foundPorts[portInfo.Port] = true
-		assert.Positive(t, portInfo.Port)
-		assert.LessOrEqual(t, portInfo.Port, 65535)
-		
-		// Check if we found our test port
-		if portInfo.Port == port1 {
+		if portInfo.Port == testPort {
 			foundTestPort = true
+			break
 		}
 	}
-
-	// Log information for debugging CI issues
-	t.Logf("Found %d listening ports, test port %d found: %v", len(ports), port1, foundTestPort)
+	t.Logf("Found %d listening ports, test port %d found: %v", len(ports), testPort, foundTestPort)
 	
-	// In CI environments, there might not always be predictable ports available,
-	// so we just verify the function works and returns valid data
-	for port := range foundPorts {
-		assert.True(t, scanner.IsPortInUse(port), "Port %d should be reported as in use", port)
+	// In CI environments, verify function works and returns valid data structure
+	// Don't require a minimum number of ports since CI environments can be minimal
+	for _, portInfo := range ports {
+		assert.Positive(t, portInfo.Port, "Port should be positive")
+		assert.LessOrEqual(t, portInfo.Port, 65535, "Port should be within valid range")
+		
+		// Each reported port should actually be in use
+		assert.True(t, scanner.IsPortInUse(portInfo.Port), "Port %d should be reported as in use", portInfo.Port)
 	}
+	
+	// The test server should be found since it's in the scanned range
+	assert.True(t, foundTestPort, "Test server on port %d should be detected by GetListeningPorts", testPort)
 }
 
 func TestScanner_IsPortInRange(t *testing.T) {
