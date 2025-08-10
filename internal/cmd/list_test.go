@@ -59,7 +59,7 @@ func executeListCmd(t *testing.T, args []string) (string, error) {
 	t.Helper()
 
 	var buf bytes.Buffer
-	
+
 	// Simple argument parsing for mock testing
 	var includeAll, jsonOutput, verboseOutput bool
 	var filterPort int
@@ -93,7 +93,7 @@ func executeListCmd(t *testing.T, args []string) (string, error) {
 
 	// Get mock process list
 	allProcesses := createMockProcessList()
-	
+
 	// Apply filters
 	filteredProcesses := make([]*process.ManagedProcess, 0, len(allProcesses))
 	for _, proc := range allProcesses {
@@ -101,17 +101,17 @@ func executeListCmd(t *testing.T, args []string) (string, error) {
 		if !includeAll && proc.Status != process.StatusRunning && proc.Status != process.StatusUnhealthy {
 			continue
 		}
-		
+
 		// Filter by port
 		if filterPort > 0 && proc.Port != filterPort {
 			continue
 		}
-		
+
 		// Filter by status string
 		if filterStatus != "" && string(proc.Status) != filterStatus {
 			continue
 		}
-		
+
 		filteredProcesses = append(filteredProcesses, proc)
 	}
 
@@ -127,13 +127,13 @@ func executeListCmd(t *testing.T, args []string) (string, error) {
 		}
 		return buf.String(), nil
 	}
-	
+
 	// Text output
 	if len(filteredProcesses) == 0 {
 		buf.WriteString("No processes found\n")
 		return buf.String(), nil
 	}
-	
+
 	if verboseOutput {
 		// Verbose output format
 		for _, proc := range filteredProcesses {
@@ -148,19 +148,19 @@ func executeListCmd(t *testing.T, args []string) (string, error) {
 		}
 		return buf.String(), nil
 	}
-	
+
 	// Simple table format
 	buf.WriteString(fmt.Sprintf("%-10s %-20s %-6s %-6s %-10s\n", "ID", "COMMAND", "PORT", "PID", "STATUS"))
 	buf.WriteString(fmt.Sprintf("%-10s %-20s %-6s %-6s %-10s\n", "----------", "--------------------", "------", "------", "----------"))
 	for _, proc := range filteredProcesses {
-		buf.WriteString(fmt.Sprintf("%-10s %-20s %-6d %-6d %-10s\n", 
-			proc.ID, 
-			proc.Command, 
-			proc.Port, 
-			proc.PID, 
+		buf.WriteString(fmt.Sprintf("%-10s %-20s %-6d %-6d %-10s\n",
+			proc.ID,
+			proc.Command,
+			proc.Port,
+			proc.PID,
 			proc.Status))
 	}
-	
+
 	return buf.String(), nil
 }
 
@@ -178,8 +178,8 @@ func TestListCommand_DefaultOutput(t *testing.T) {
 			validateOutput: func(t *testing.T, output string) {
 				t.Helper()
 				// Should show running and unhealthy, but not stopped
-				assert.Contains(t, output, "test-1") // running
-				assert.Contains(t, output, "test-3") // unhealthy
+				assert.Contains(t, output, "test-1")    // running
+				assert.Contains(t, output, "test-3")    // unhealthy
 				assert.NotContains(t, output, "test-2") // stopped
 				assert.Contains(t, output, "npm run dev")
 				assert.Contains(t, output, "python app.py")
@@ -250,15 +250,15 @@ func TestListCommand_JSONOutput(t *testing.T) {
 				var result map[string]interface{}
 				err := json.Unmarshal([]byte(output), &result)
 				require.NoError(t, err)
-				
+
 				assert.Contains(t, result, "processes")
 				assert.Contains(t, result, "total")
 				assert.InEpsilon(t, float64(3), result["total"], 0.01)
-				
+
 				processes, ok := result["processes"].([]interface{})
 				require.True(t, ok)
 				assert.Len(t, processes, 3)
-				
+
 				// Check first process structure
 				firstProc, ok := processes[0].(map[string]interface{})
 				require.True(t, ok)
@@ -277,7 +277,7 @@ func TestListCommand_JSONOutput(t *testing.T) {
 				var result map[string]interface{}
 				err := json.Unmarshal([]byte(output), &result)
 				require.NoError(t, err)
-				
+
 				assert.InEpsilon(t, float64(2), result["total"], 0.01) // Only running and unhealthy
 			},
 		},
@@ -403,13 +403,13 @@ func TestListCommand_CombinedOptions(t *testing.T) {
 				var result map[string]interface{}
 				err := json.Unmarshal([]byte(output), &result)
 				require.NoError(t, err)
-				
+
 				assert.InEpsilon(t, float64(1), result["total"], 0.01)
-				
+
 				processes, ok := result["processes"].([]interface{})
 				require.True(t, ok)
 				assert.Len(t, processes, 1)
-				
+
 				proc, ok := processes[0].(map[string]interface{})
 				require.True(t, ok)
 				assert.Equal(t, "test-1", proc["id"])
@@ -438,13 +438,13 @@ func TestListCommand_CombinedOptions(t *testing.T) {
 				var result map[string]interface{}
 				err := json.Unmarshal([]byte(output), &result)
 				require.NoError(t, err)
-				
+
 				assert.InEpsilon(t, float64(1), result["total"], 0.01)
-				
+
 				processes, ok := result["processes"].([]interface{})
 				require.True(t, ok)
 				assert.Len(t, processes, 1)
-				
+
 				proc, ok := processes[0].(map[string]interface{})
 				require.True(t, ok)
 				assert.Equal(t, "test-3", proc["id"])
@@ -473,10 +473,10 @@ func TestListCommand_OutputFormatting(t *testing.T) {
 	t.Run("table_header_format", func(t *testing.T) {
 		output, err := executeListCmd(t, []string{})
 		require.NoError(t, err)
-		
+
 		lines := strings.Split(strings.TrimSpace(output), "\n")
 		require.GreaterOrEqual(t, len(lines), 2)
-		
+
 		// Check header line
 		headerLine := lines[0]
 		assert.Contains(t, headerLine, "ID")
@@ -484,7 +484,7 @@ func TestListCommand_OutputFormatting(t *testing.T) {
 		assert.Contains(t, headerLine, "PORT")
 		assert.Contains(t, headerLine, "PID")
 		assert.Contains(t, headerLine, "STATUS")
-		
+
 		// Check separator line
 		separatorLine := lines[1]
 		assert.Contains(t, separatorLine, "----------")
@@ -494,7 +494,7 @@ func TestListCommand_OutputFormatting(t *testing.T) {
 	t.Run("verbose_format_structure", func(t *testing.T) {
 		output, err := executeListCmd(t, []string{"--verbose"})
 		require.NoError(t, err)
-		
+
 		// Should contain block format with labels
 		assert.Regexp(t, `ID: test-\d+`, output)
 		assert.Regexp(t, `Command: .*`, output)
@@ -508,7 +508,7 @@ func TestListCommand_OutputFormatting(t *testing.T) {
 	t.Run("empty_result_handling", func(t *testing.T) {
 		output, err := executeListCmd(t, []string{"--port", "99999"})
 		require.NoError(t, err)
-		
+
 		assert.Equal(t, "No processes found\n", output)
 	})
 }

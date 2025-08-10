@@ -58,7 +58,7 @@ func TestManagedProcess_Age(t *testing.T) {
 
 	age := process.Age()
 	assert.True(t, age > 50*time.Minute) //nolint:testifylint // TODO: Use assert.Greater for clearer test intent
-	assert.True(t, age < 2*time.Hour) //nolint:testifylint // TODO: Use assert.Less for clearer test intent
+	assert.True(t, age < 2*time.Hour)    //nolint:testifylint // TODO: Use assert.Less for clearer test intent
 }
 
 func TestHealthCheckType(t *testing.T) {

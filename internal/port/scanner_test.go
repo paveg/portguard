@@ -24,7 +24,7 @@ const (
 // Helper function to find an available port for testing
 func findTestPort(t *testing.T) int {
 	t.Helper()
-	
+
 	// Use context.Background() for better practice
 	var lc net.ListenConfig
 	listener, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
@@ -33,42 +33,43 @@ func findTestPort(t *testing.T) int {
 		//nolint:errcheck // Test cleanup can fail
 		_ = listener.Close()
 	}()
-	
+
 	//nolint:errcheck // Type assertion is safe for TCP listener
 	addr := listener.Addr().(*net.TCPAddr)
 	return addr.Port
 }
 
 // Helper function to create a test server on a specific port
+//
 //nolint:unparam // net.Listener is used in some tests but ignored in others
 func createTestServer(t *testing.T, port int) (net.Listener, func()) {
 	t.Helper()
-	
+
 	//nolint:noctx // Test helper function, context not critical
 	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
 	require.NoError(t, err)
-	
+
 	cleanup := func() {
 		//nolint:errcheck // Test cleanup can fail
 		_ = listener.Close()
 	}
-	
+
 	return listener, cleanup
 }
 
 // Helper function to create a UDP server for testing
 func createTestUDPServer(t *testing.T, port int) (net.PacketConn, func()) {
 	t.Helper()
-	
+
 	//nolint:noctx // Test helper function, context not critical
 	conn, err := net.ListenPacket("udp", fmt.Sprintf("127.0.0.1:%d", port))
 	require.NoError(t, err)
-	
+
 	cleanup := func() {
 		//nolint:errcheck // Test cleanup can fail
 		_ = conn.Close()
 	}
-	
+
 	return conn, cleanup
 }
 
@@ -94,7 +95,7 @@ func TestNewScanner(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			scanner := NewScanner(tt.timeout)
-			
+
 			require.NotNil(t, scanner)
 			assert.Equal(t, tt.timeout, scanner.timeout)
 		})
@@ -105,9 +106,9 @@ func TestScanner_IsPortInUse(t *testing.T) {
 	scanner := NewScanner(defaultTimeout)
 
 	tests := []struct {
-		name           string
-		setupServer    func(t *testing.T) (int, func())
-		expectedInUse  bool
+		name          string
+		setupServer   func(t *testing.T) (int, func())
+		expectedInUse bool
 	}{
 		{
 			name: "port_not_in_use",
@@ -224,7 +225,7 @@ func TestScanner_FindAvailablePort(t *testing.T) {
 				require.NoError(t, err)
 				assert.GreaterOrEqual(t, port, testPortStart)
 				assert.LessOrEqual(t, port, 65535)
-				
+
 				// Verify the returned port is actually available
 				assert.False(t, scanner.IsPortInUse(port))
 			},
@@ -236,13 +237,13 @@ func TestScanner_FindAvailablePort(t *testing.T) {
 				t.Helper()
 				// Create servers on first few ports
 				cleanupFuncs := make([]func(), 0, 3)
-				
+
 				for i := 0; i < 3; i++ {
 					port := testPortStart + 100 + i
 					_, cleanup := createTestServer(t, port)
 					cleanupFuncs = append(cleanupFuncs, cleanup)
 				}
-				
+
 				return func() {
 					for _, cleanup := range cleanupFuncs {
 						cleanup()
@@ -252,7 +253,7 @@ func TestScanner_FindAvailablePort(t *testing.T) {
 			validate: func(t *testing.T, port int, err error) {
 				t.Helper()
 				require.NoError(t, err)
-				
+
 				// Should find a port after the occupied ones
 				assert.Greater(t, port, testPortStart+102)
 				assert.False(t, scanner.IsPortInUse(port))
@@ -290,11 +291,11 @@ func TestScanner_ScanRange(t *testing.T) {
 				t.Helper()
 				require.NoError(t, err)
 				require.NotNil(t, portInfos)
-				
+
 				// Should return info for all ports in range, even if not in use
 				expectedCount := (testPortStart + 210) - (testPortStart + 200) + 1
 				assert.Len(t, portInfos, expectedCount)
-				
+
 				for _, portInfo := range portInfos {
 					assert.GreaterOrEqual(t, portInfo.Port, testPortStart+200)
 					assert.LessOrEqual(t, portInfo.Port, testPortStart+210)
@@ -310,10 +311,10 @@ func TestScanner_ScanRange(t *testing.T) {
 				// Create servers on a couple ports in the range
 				port1 := startPort + 1
 				port2 := startPort + 3
-				
+
 				_, cleanup1 := createTestServer(t, port1)
 				_, cleanup2 := createTestServer(t, port2)
-				
+
 				return func() {
 					cleanup1()
 					cleanup2()
@@ -322,10 +323,10 @@ func TestScanner_ScanRange(t *testing.T) {
 			validate: func(t *testing.T, portInfos []process.PortInfo, err error) {
 				t.Helper()
 				require.NoError(t, err)
-				
+
 				expectedCount := (testPortStart + 305) - (testPortStart + 300) + 1
 				assert.Len(t, portInfos, expectedCount)
-				
+
 				usedPortsFound := 0
 				for _, portInfo := range portInfos {
 					if portInfo.Port == testPortStart+301 || portInfo.Port == testPortStart+303 {
@@ -334,7 +335,7 @@ func TestScanner_ScanRange(t *testing.T) {
 						assert.GreaterOrEqual(t, portInfo.PID, -1) // May be -1 if process info not available
 					}
 				}
-				
+
 				// We should have found both used ports in the scan
 				assert.Equal(t, 2, usedPortsFound)
 			},
@@ -385,12 +386,12 @@ func TestScanner_GetListeningPorts(t *testing.T) {
 	for scanner.IsPortInUse(testPort) && testPort < 3010 {
 		testPort++
 	}
-	
+
 	// Skip test if no available ports in the common range
 	if scanner.IsPortInUse(testPort) {
 		t.Skip("No available ports in common range for testing")
 	}
-	
+
 	_, cleanup1 := createTestServer(t, testPort)
 	defer cleanup1()
 
@@ -407,17 +408,17 @@ func TestScanner_GetListeningPorts(t *testing.T) {
 		}
 	}
 	t.Logf("Found %d listening ports, test port %d found: %v", len(ports), testPort, foundTestPort)
-	
+
 	// In CI environments, verify function works and returns valid data structure
 	// Don't require a minimum number of ports since CI environments can be minimal
 	for _, portInfo := range ports {
 		assert.Positive(t, portInfo.Port, "Port should be positive")
 		assert.LessOrEqual(t, portInfo.Port, 65535, "Port should be within valid range")
-		
+
 		// Each reported port should actually be in use
 		assert.True(t, scanner.IsPortInUse(portInfo.Port), "Port %d should be reported as in use", portInfo.Port)
 	}
-	
+
 	// The test server should be found since it's in the scanned range
 	assert.True(t, foundTestPort, "Test server on port %d should be detected by GetListeningPorts", testPort)
 }
@@ -621,7 +622,7 @@ func TestScanner_ParsePortRange(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			minPort, maxPort, err := scanner.ParsePortRange(tt.portRange)
-			
+
 			if tt.expectError {
 				require.Error(t, err)
 			} else {
@@ -635,13 +636,13 @@ func TestScanner_ParsePortRange(t *testing.T) {
 
 func TestScanner_ConcurrentOperations(t *testing.T) {
 	scanner := NewScanner(defaultTimeout)
-	
+
 	const numGoroutines = 10
 	const portsPerGoroutine = 5
 
 	var wg sync.WaitGroup
 	wg.Add(numGoroutines)
-	
+
 	results := make([][]int, numGoroutines)
 	errors := make([]error, numGoroutines)
 
@@ -649,10 +650,10 @@ func TestScanner_ConcurrentOperations(t *testing.T) {
 	for i := 0; i < numGoroutines; i++ {
 		go func(id int) {
 			defer wg.Done()
-			
+
 			startPort := testPortStart + (id * 1000)
 			foundPorts := make([]int, 0, portsPerGoroutine)
-			
+
 			// Find multiple available ports
 			for j := 0; j < portsPerGoroutine; j++ {
 				port, err := scanner.FindAvailablePort(startPort + (j * 10))
@@ -662,7 +663,7 @@ func TestScanner_ConcurrentOperations(t *testing.T) {
 				}
 				foundPorts = append(foundPorts, port)
 			}
-			
+
 			results[id] = foundPorts
 		}(i)
 	}
@@ -676,14 +677,14 @@ func TestScanner_ConcurrentOperations(t *testing.T) {
 			t.Logf("Goroutine %d encountered error: %v", i, errors[i])
 			continue
 		}
-		
+
 		require.Len(t, ports, portsPerGoroutine)
-		
+
 		for _, port := range ports {
 			// Each port should be unique
 			assert.False(t, allFoundPorts[port], "Port %d was found by multiple goroutines", port)
 			allFoundPorts[port] = true
-			
+
 			// Verify port is actually available
 			assert.False(t, scanner.IsPortInUse(port))
 		}
@@ -696,21 +697,21 @@ func TestScanner_CrossPlatformCompatibility(t *testing.T) {
 	t.Run("basic_functionality_works_on_all_platforms", func(t *testing.T) {
 		// Test that basic port scanning works regardless of platform
 		port := findTestPort(t)
-		
+
 		// Test available port
 		assert.False(t, scanner.IsPortInUse(port))
-		
+
 		// Create server and test used port
 		listener, cleanup := createTestServer(t, port)
 		defer cleanup()
-		
+
 		assert.True(t, scanner.IsPortInUse(port))
-		
+
 		// Get port info
 		portInfo, err := scanner.GetPortInfo(port)
 		require.NoError(t, err)
 		assert.Equal(t, port, portInfo.Port)
-		
+
 		_ = listener // Use listener to avoid unused variable
 	})
 
@@ -721,7 +722,7 @@ func TestScanner_CrossPlatformCompatibility(t *testing.T) {
 
 		portInfo, err := scanner.GetPortInfo(port)
 		require.NoError(t, err)
-		
+
 		// Process information availability depends on platform and permissions
 		switch runtime.GOOS {
 		case "linux", "darwin":
@@ -737,7 +738,7 @@ func TestScanner_CrossPlatformCompatibility(t *testing.T) {
 			// Other platforms - just verify basic structure
 			assert.GreaterOrEqual(t, portInfo.Port, 0)
 		}
-		
+
 		_ = listener // Use listener to avoid unused variable
 	})
 }

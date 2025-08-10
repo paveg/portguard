@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
 )
 
 // Helper function to execute check command with given args
@@ -16,7 +15,7 @@ func executeCheckCmd(t *testing.T, args []string) (string, error) {
 	t.Helper()
 
 	var buf bytes.Buffer
-	
+
 	// Simple argument parsing for mock testing
 	var port int
 	var available, jsonOutput bool
@@ -109,7 +108,7 @@ func executeCheckCmd(t *testing.T, args []string) (string, error) {
 			buf.WriteString("Status: No managed processes found\n")
 		}
 	}
-	
+
 	return buf.String(), nil
 }
 
@@ -138,7 +137,7 @@ func TestCheckCommand_PortCheck(t *testing.T) {
 				var result map[string]interface{}
 				err := json.Unmarshal([]byte(output), &result)
 				require.NoError(t, err)
-				
+
 				assert.InEpsilon(t, float64(8080), result["port"], 0.01)
 				assert.Equal(t, true, result["available"])
 				assert.NotEmpty(t, result["status"])
@@ -206,11 +205,11 @@ func TestCheckCommand_AvailablePortsCheck(t *testing.T) {
 				var result map[string]interface{}
 				err := json.Unmarshal([]byte(output), &result)
 				require.NoError(t, err)
-				
+
 				assert.Contains(t, result, "available_ports")
 				assert.InEpsilon(t, float64(5000), result["start_port"], 0.01)
 				assert.InEpsilon(t, float64(5010), result["end_port"], 0.01)
-				
+
 				ports, ok := result["available_ports"].([]interface{})
 				assert.True(t, ok)
 				assert.NotEmpty(t, ports)
@@ -259,7 +258,7 @@ func TestCheckCommand_GeneralStatus(t *testing.T) {
 				var result map[string]interface{}
 				err := json.Unmarshal([]byte(output), &result)
 				require.NoError(t, err)
-				
+
 				assert.Contains(t, result, "status")
 				assert.Contains(t, result, "processes")
 				assert.Contains(t, result, "message")

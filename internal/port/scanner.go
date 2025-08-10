@@ -175,7 +175,7 @@ func (s *Scanner) GetListeningPorts() ([]process.PortInfo, error) {
 
 	// Scan common development ports
 	commonPorts := []int{3000, 3001, 3002, 3003, 4000, 4001, 5000, 5001, 8000, 8001, 8080, 8081, 9000, 9001}
-	
+
 	// Check common ports
 	for _, port := range commonPorts {
 		if s.IsPortInUse(port) {
@@ -184,7 +184,6 @@ func (s *Scanner) GetListeningPorts() ([]process.PortInfo, error) {
 			}
 		}
 	}
-
 
 	// Scan ephemeral port range (system-assigned ports) - common range is 49152-65535
 	// For efficiency, scan a smaller range where most dynamic ports are assigned
