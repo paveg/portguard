@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2025-08-11
+
+### Fixed
+
+- **CLI Commands Implementation**: All major CLI commands now fully functional
+  - `portguard list` - List managed processes with table and JSON output
+  - `portguard stop <id|port>` - Stop processes by ID or port number with force option
+  - `portguard clean` - Clean up stopped processes with dry-run support
+- **Hook Compatibility**: Fixed `portguard intercept` to support both "tool" and "tool_name" fields
+- **Performance**: Use `strconv.Itoa` instead of `fmt.Sprintf` for better performance
+- **Documentation Accuracy**: README.md now accurately reflects actual functionality
+
+### Added
+
+- **JSON Output Support**: All commands support `--json` flag for AI tool integration
+- **Dry-run Mode**: `portguard clean --dry-run` shows what would be cleaned
+- **Force Options**: Force stop and cleanup options for better control
+- **Better Error Handling**: Improved error messages and user feedback
+
+### Technical Details
+
+```bash
+# New fully functional commands
+portguard list --json --all      # List all processes including stopped
+portguard stop abc123 --force    # Force stop process by ID  
+portguard stop 3000              # Stop process by port
+portguard clean --dry-run        # Preview cleanup actions
+```
+
+This patch release addresses the critical issue where most CLI commands showed "not implemented yet", making the README documentation misleading. All commands are now fully implemented and tested.
+
 ## [0.2.0] - 2025-08-11
 
 ### Added
@@ -141,5 +172,6 @@ Automatically detects and manages:
 - `node server.js`, `nodemon`, `vite`
 - And many more development server patterns
 
+[0.2.1]: https://github.com/paveg/portguard/releases/tag/v0.2.1
 [0.2.0]: https://github.com/paveg/portguard/releases/tag/v0.2.0
 [0.1.0]: https://github.com/paveg/portguard/releases/tag/v0.1.0
