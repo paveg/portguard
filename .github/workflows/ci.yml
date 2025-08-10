@@ -163,8 +163,8 @@ jobs:
 
       - name: Test build artifacts
         run: |
-          ./build/portguard --version
-          ./build/portguard --help
+          ./bin/portguard --version
+          ./bin/portguard --help
 
   integration:
     name: Integration Tests
@@ -187,7 +187,7 @@ jobs:
         run: |
           # Test hook scripts
           chmod +x hooks/*.sh
-          ./hooks/test_hooks.sh
+          PORTGUARD_BIN=./bin/portguard ./hooks/test_hooks.sh
 
       - name: Run AI integration tests
         run: make ai-test
@@ -214,7 +214,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: portguard-binaries
-          path: build/
+          path: bin/
           retention-days: 30
 
   coverage-report:
@@ -222,6 +222,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test]
     if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
 
     steps:
       - name: Checkout code

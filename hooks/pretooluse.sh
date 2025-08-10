@@ -65,27 +65,27 @@ if [ -z "$json_input" ]; then
     exit 0
 fi
 
-# Extract event type
-event=$(echo "$json_input" | jq -r '.event // "unknown"')
+# Extract event type (handle invalid JSON gracefully)
+event=$(echo "$json_input" | jq -r '.event // "unknown"' 2>/dev/null || echo "unknown")
 
 if [ "$event" != "preToolUse" ]; then
-    output_json "true" "Not a preToolUse event" "{}"
+    echo '{"proceed": true, "message": "Not a preToolUse event", "data": {}}'
     exit 0
 fi
 
 # Extract tool name
-tool_name=$(echo "$json_input" | jq -r '.tool_name // ""')
+tool_name=$(echo "$json_input" | jq -r '.tool_name // ""' 2>/dev/null || echo "")
 
 if [ "$tool_name" != "Bash" ]; then
-    output_json "true" "Non-Bash tool" "{}"
+    echo '{"proceed": true, "message": "Non-Bash tool", "data": {}}'
     exit 0
 fi
 
 # Extract command
-command=$(echo "$json_input" | jq -r '.parameters.command // ""')
+command=$(echo "$json_input" | jq -r '.parameters.command // ""' 2>/dev/null || echo "")
 
 if [ -z "$command" ]; then
-    output_json "true" "No command found" "{}"
+    echo '{"proceed": true, "message": "No command found", "data": {}}'
     exit 0
 fi
 

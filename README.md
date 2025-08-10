@@ -28,14 +28,32 @@ Portguard provides:
 
 ## Installation
 
+### Option 1: Go Install (Recommended)
+
 ```bash
-# Build from source
+go install github.com/paveg/portguard/cmd/portguard@latest
+```
+
+### Option 2: Download Binary
+
+Download the latest binary from the [releases page](https://github.com/paveg/portguard/releases/latest):
+
+```bash
+# Example for Linux AMD64
+wget https://github.com/paveg/portguard/releases/latest/download/portguard-linux-amd64
+chmod +x portguard-linux-amd64
+sudo mv portguard-linux-amd64 /usr/local/bin/portguard
+```
+
+### Option 3: Build from Source
+
+```bash
 git clone https://github.com/paveg/portguard
 cd portguard
-go build -o portguard cmd/portguard/main.go
+make build
 
 # Add to PATH
-mv portguard /usr/local/bin/
+sudo cp bin/portguard /usr/local/bin/
 ```
 
 ## Quick Start

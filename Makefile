@@ -5,9 +5,9 @@
 
 # Variables
 BINARY_NAME=portguard
-BUILD_DIR=build
+BUILD_DIR=bin
 VERSION?=0.1.0
-LDFLAGS=-ldflags "-X main.Version=$(VERSION)"
+LDFLAGS=-ldflags "-X github.com/paveg/portguard/internal/cmd.Version=$(VERSION)"
 
 # Default target
 all: build
@@ -16,7 +16,7 @@ all: build
 build:
 	@echo "Building $(BINARY_NAME)..."
 	@mkdir -p $(BUILD_DIR)
-	go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) cmd/portguard/main.go
+	go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/portguard
 	@echo "Build complete: $(BUILD_DIR)/$(BINARY_NAME)"
 
 # Run tests
@@ -64,7 +64,7 @@ test-coverage-badge:
 # Clean build artifacts
 clean:
 	@echo "Cleaning up..."
-	rm -rf $(BUILD_DIR)
+	rm -rf $(BUILD_DIR) build
 	rm -f coverage.out coverage.html coverage-detailed.html
 	rm -f example.portguard.yml demo.portguard.yml
 
@@ -76,7 +76,7 @@ install: build
 
 # Run in development mode
 run:
-	go run cmd/portguard/main.go
+	go run ./cmd/portguard
 
 # Development tools
 dev:
@@ -90,16 +90,16 @@ build-all:
 	@mkdir -p $(BUILD_DIR)
 	
 	# Linux AMD64
-	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 cmd/portguard/main.go
+	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 ./cmd/portguard
 	
 	# macOS AMD64
-	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 cmd/portguard/main.go
+	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 ./cmd/portguard
 	
 	# macOS ARM64 (Apple Silicon)
-	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 cmd/portguard/main.go
+	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 ./cmd/portguard
 	
 	# Windows AMD64
-	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe cmd/portguard/main.go
+	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe ./cmd/portguard
 	
 	@echo "Multi-platform build complete"
 
@@ -119,26 +119,26 @@ fmt:
 docs:
 	@echo "Generating documentation..."
 	@mkdir -p docs
-	go run cmd/portguard/main.go --help > docs/help.txt
+	go run ./cmd/portguard --help > docs/help.txt
 	@echo "Documentation generated in docs/"
 
 # Demo commands
 demo:
 	@echo "Running demo commands..."
 	@echo "\n=== Initializing config ==="
-	go run cmd/portguard/main.go config init --file demo.portguard.yml
+	go run ./cmd/portguard config init --file demo.portguard.yml
 	
 	@echo "\n=== Showing help ==="
-	go run cmd/portguard/main.go --help
+	go run ./cmd/portguard --help
 	
 	@echo "\n=== Checking status (JSON) ==="
-	go run cmd/portguard/main.go check --json
+	go run ./cmd/portguard check --json
 	
 	@echo "\n=== Showing config ==="
-	go run cmd/portguard/main.go config show --config demo.portguard.yml
+	go run ./cmd/portguard config show --config demo.portguard.yml
 	
 	@echo "\n=== Listing processes ==="
-	go run cmd/portguard/main.go list
+	go run ./cmd/portguard list
 	
 	@echo "\nDemo complete!"
 
@@ -146,13 +146,13 @@ demo:
 ai-test:
 	@echo "Testing AI integration..."
 	@echo "# Port status check"
-	go run cmd/portguard/main.go check --port 3000 --json
+	go run ./cmd/portguard check --port 3000 --json
 	@echo ""
 	@echo "# Available port search"
-	go run cmd/portguard/main.go check --available --start 3000 --json
+	go run ./cmd/portguard check --available --start 3000 --json
 	@echo ""
 	@echo "# Process list"
-	go run cmd/portguard/main.go list --json
+	go run ./cmd/portguard list --json
 
 # Check dependencies
 deps-check:

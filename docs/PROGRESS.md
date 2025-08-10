@@ -82,11 +82,13 @@ func (pm *ProcessManager) cleanupStaleProcesses(maxAge time.Duration) error
 ### 🎯 Claude Code Integration Ready
 
 **Intercept Command**: Full Claude Code hooks support for server duplicate prevention
+
 ```bash
 portguard intercept  # Processes preToolUse/postToolUse events
 ```
 
 **Server Detection Patterns**: Recognizes common development servers
+
 - `npm run dev`, `npm start`, `yarn dev`
 - `go run main.go`, `go run server.go`  
 - `python manage.py runserver`, `flask run`
@@ -217,6 +219,7 @@ portguard intercept  # Processes preToolUse/postToolUse events
 ### Claude Code Integration (Ready to Use!)
 
 **1. Configure Claude Code Settings:**
+
 ```json
 {
   "hooks": {
@@ -233,6 +236,7 @@ portguard intercept  # Processes preToolUse/postToolUse events
 ```
 
 **2. Test Server Duplicate Prevention:**
+
 ```bash
 # Try these commands in Claude Code - only first will start server
 npm run dev           # ✅ Starts server

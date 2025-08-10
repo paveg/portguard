@@ -56,7 +56,9 @@ func TestRootCommandStructure(t *testing.T) {
 		assert.Equal(t, "AI-aware process management tool", rootCmd.Short)
 		assert.Contains(t, rootCmd.Long, "Portguard is a CLI tool")
 		assert.Contains(t, rootCmd.Long, "Claude Code")
-		assert.Equal(t, "0.1.0", rootCmd.Version)
+		// Version should be set and not empty
+		assert.NotEmpty(t, rootCmd.Version)
+		assert.Equal(t, Version, rootCmd.Version)
 	})
 
 	t.Run("persistent_flags", func(t *testing.T) {

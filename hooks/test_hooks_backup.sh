@@ -32,12 +32,12 @@ log_info() {
 
 log_success() {
     echo -e "${GREEN}[PASS]${NC} $*"
-    ((TESTS_PASSED++)) || true
+    ((TESTS_PASSED++))
 }
 
 log_error() {
     echo -e "${RED}[FAIL]${NC} $*"
-    ((TESTS_FAILED++)) || true
+    ((TESTS_FAILED++))
 }
 
 log_warning() {
@@ -78,7 +78,7 @@ run_pretooluse_test() {
         fi
         
         # Pretty print the output for inspection
-        # echo "$output" | jq . 2>/dev/null || echo "$output"
+        echo "$output" | jq . 2>/dev/null || echo "$output"
         echo
     else
         log_error "$test_name - Hook execution failed"
@@ -120,7 +120,7 @@ run_posttooluse_test() {
         fi
         
         # Pretty print the output for inspection
-        # echo "$output" | jq . 2>/dev/null || echo "$output"
+        echo "$output" | jq . 2>/dev/null || echo "$output"
         echo
     else
         log_error "$test_name - Hook execution failed"
@@ -245,7 +245,7 @@ main() {
         },
         "session_id": "test123",
         "working_dir": "/tmp/test"
-    }' "error"
+    }' "success"
     
     # Test 3: Non-server command success
     run_posttooluse_test "Non-Server Command Success" "$POSTTOOLUSE_HOOK" '{

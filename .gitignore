@@ -5,7 +5,7 @@
 *.so
 *.dylib
 main
-portguard
+/portguard
 
 # Build artifacts
 build/
