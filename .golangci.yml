@@ -1,28 +1,30 @@
-version: 2
+version: "2"
 
 run:
   timeout: 5m
   tests: true
 
-linters-settings:
-  nestif:
-    min-complexity: 15
+linters:
+  settings:
+    nestif:
+      min-complexity: 15
+  exclusions:
+    rules:
+      - text: "Defer unlock completes regardless"
+        linters:
+          - errcheck
+      - text: "deferInLoop.*Possible resource leak"
+        linters:
+          - gocritic
+      - text: "importShadow.*shadow of imported"
+        linters:
+          - gocritic
+      - text: "returns interface"
+        linters:
+          - ireturn
+      - text: "Magic number: [57]"
+        linters:
+          - mnd
 
 issues:
-  exclude-rules:
-    - text: "Defer unlock completes regardless"
-      linters:
-        - errcheck
-    - text: "deferInLoop.*Possible resource leak"
-      linters:
-        - gocritic  
-    - text: "importShadow.*shadow of imported"
-      linters:
-        - gocritic
-    - text: "returns interface"
-      linters:
-        - ireturn
-    - text: "Magic number: [57]"
-      linters:
-        - mnd
   max-issues-per-linter: 20

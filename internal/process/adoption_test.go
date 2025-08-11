@@ -230,8 +230,8 @@ func TestEvaluateProcessSuitabilityComprehensive(t *testing.T) {
 	adopter := NewProcessAdopter(5 * time.Second)
 
 	testCases := []struct {
-		name           string
-		info           *AdoptionInfo
+		name             string
+		info             *AdoptionInfo
 		expectedSuitable bool
 		expectedReason   string
 	}{
@@ -418,9 +418,9 @@ func TestAdoptProcessByPIDErrorConditions(t *testing.T) {
 		_, err := adopter.AdoptProcessByPID(999999)
 		assert.Error(t, err)
 		// Could be process not found or process not running
-		assert.True(t, 
-			strings.Contains(err.Error(), "not found") || 
-			strings.Contains(err.Error(), "no longer running"),
+		assert.True(t,
+			strings.Contains(err.Error(), "not found") ||
+				strings.Contains(err.Error(), "no longer running"),
 			"Expected 'not found' or 'no longer running' error, got: %v", err)
 	})
 }

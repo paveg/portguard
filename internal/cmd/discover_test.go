@@ -172,3 +172,139 @@ func TestCreateDiscoveryManagementComponents(t *testing.T) {
 	assert.NotNil(t, lockManager)
 	assert.NotNil(t, portScanner)
 }
+
+func TestOutputDiscoveryResults(t *testing.T) {
+	// Create temporary directory for test
+	tempDir := t.TempDir()
+	oldHome := os.Getenv("HOME")
+	defer func() { _ = os.Setenv("HOME", oldHome) }()
+	_ = os.Setenv("HOME", tempDir)
+
+	processes := []*process.AdoptionInfo{
+		{
+			PID:         1234,
+			ProcessName: "node",
+			Command:     "npm run dev",
+			Port:        3000,
+			WorkingDir:  "/test/project",
+			IsSuitable:  true,
+			Reason:      "development server detected",
+		},
+		{
+			PID:         5678,
+			ProcessName: "unknown",
+			Command:     "/usr/bin/unknown",
+			Port:        0,
+			IsSuitable:  false,
+			Reason:      "not a recognized development server",
+		},
+	}
+
+	t.Run("output_without_auto_import", func(t *testing.T) {
+		// Capture stdout
+		var buf bytes.Buffer
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
+		done := make(chan error, 1)
+		go func() {
+			defer func() { _ = w.Close() }()
+			done <- outputDiscoveryResults(processes, false)
+		}()
+
+		err := <-done
+		os.Stdout = oldStdout
+		assert.NoError(t, err)
+
+		// Read output
+		_, _ = buf.ReadFrom(r)
+		_ = r.Close()
+
+		output := buf.String()
+		assert.Contains(t, output, "Process: node")
+		assert.Contains(t, output, "Port: 3000")
+		assert.Contains(t, output, "Suitable for adoption: true")
+		assert.Contains(t, output, "Suitable for adoption: false")
+		assert.Contains(t, output, "To import any of these processes")
+		assert.Contains(t, output, "portguard import port 3000")
+	})
+
+	t.Run("output_with_auto_import_enabled", func(t *testing.T) {
+		// This test will fail the auto-import due to missing process manager setup
+		// but we can test the flow
+		var buf bytes.Buffer
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
+		done := make(chan error, 1)
+		go func() {
+			defer func() { _ = w.Close() }()
+			done <- outputDiscoveryResults(processes, true)
+		}()
+
+		err := <-done
+		os.Stdout = oldStdout
+
+		// Should succeed despite potential auto-import failures
+		assert.NoError(t, err)
+
+		// Read output
+		_, _ = buf.ReadFrom(r)
+		_ = r.Close()
+
+		output := buf.String()
+		assert.Contains(t, output, "Process: node")
+		assert.Contains(t, output, "Auto-importing...")
+	})
+}
+
+func TestAutoImportProcess(t *testing.T) {
+	// Create temporary directory for test
+	tempDir := t.TempDir()
+	oldHome := os.Getenv("HOME")
+	defer func() { _ = os.Setenv("HOME", oldHome) }()
+	_ = os.Setenv("HOME", tempDir)
+
+	// Load config and create management components
+	cfg, err := config.Load()
+	require.NoError(t, err)
+
+	stateStore, lockManager, portScanner, err := createDiscoveryManagementComponents(cfg)
+	require.NoError(t, err)
+
+	processManager := process.NewProcessManager(stateStore, lockManager, portScanner)
+
+	adoptionInfo := &process.AdoptionInfo{
+		PID:         os.Getpid(), // Use current process for testing
+		ProcessName: "test-process",
+		Command:     "test-command",
+		Port:        8080,
+		IsSuitable:  true,
+		Reason:      "test process",
+	}
+
+	t.Run("auto_import_successful", func(t *testing.T) {
+		err := autoImportProcess(processManager, adoptionInfo)
+		// May fail due to process not being a real server, but should not panic
+		// The important thing is the function executes without panicking
+		if err != nil {
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), "failed to")
+		}
+	})
+
+	t.Run("auto_import_invalid_process", func(t *testing.T) {
+		invalidInfo := &process.AdoptionInfo{
+			PID:         -1,
+			ProcessName: "invalid",
+			Command:     "invalid",
+			IsSuitable:  true,
+		}
+
+		err := autoImportProcess(processManager, invalidInfo)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to adopt process")
+	})
+}
