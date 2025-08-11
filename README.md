@@ -87,6 +87,9 @@ portguard hooks list --templates  # See all options
 # Start a process (or reuse existing one)
 portguard start "go run main.go" --port 3000
 
+# Start using project configuration
+portguard start api --config .portguard.yml
+
 # List all managed processes
 portguard list
 
@@ -104,7 +107,7 @@ portguard clean
 
 ### Core Commands
 
-- `portguard start <command>` - Start a new process or reuse existing one
+- `portguard start <command|project>` - Start a new process or reuse existing one
 - `portguard stop <id|port>` - Stop a managed process  
 - `portguard list` - List all managed processes
 - `portguard status [id]` - Show process status and health information
@@ -145,7 +148,7 @@ Portguard seamlessly integrates with Claude Code using the official hooks specif
 ### How It Works
 
 1. **PreToolUse Hook**: Intercepts Bash commands before execution
-   - Detects server startup commands (`npm run dev`, `go run main.go`, etc.)
+   - Detects 40+ server startup commands (`npm run dev`, `pnpm dev`, `air`, `turbo run dev`, etc.)
    - Checks for existing processes on the same port
    - Blocks duplicate servers or suggests alternatives
 
@@ -229,11 +232,41 @@ projects:
     health_check:
       type: http
       target: "http://localhost:3000/health"
+    environment:
+      NODE_ENV: "development"
   
   api:
     command: "go run main.go"
     port: 3001
     working_dir: "./api"
+    health_check:
+      type: http
+      target: "http://localhost:3001/api/health"
+  
+  # Modern development tools
+  monorepo:
+    command: "turbo run dev"
+    port: 3000
+    
+  rust-app:
+    command: "cargo run"
+    port: 8080
+    working_dir: "./rust-backend"
+```
+
+### Project-Based Commands
+
+You can now start processes using project names defined in your configuration:
+
+```bash
+# Start web project (uses npm run dev on port 3000)
+portguard start web
+
+# Start API project (uses go run main.go on port 3001)  
+portguard start api
+
+# Start with custom config file
+portguard start web --config ./custom-config.yml
 ```
 
 ## AI Integration Examples
@@ -256,6 +289,45 @@ portguard list --json
 ```
 
 ## Features
+
+### Comprehensive Framework Support
+
+Portguard automatically recognizes and handles 40+ development frameworks and tools:
+
+**JavaScript/Node.js**
+- `npm run dev`, `npm start`, `yarn dev`
+- `pnpm dev`, `pnpm run dev` 
+- `turbo run dev`, `turbo dev` (Turbo Repo)
+- `nx serve`, `nx dev` (Nx Monorepo)
+- `bun run dev`, `bun dev` (Bun)
+- `next dev`, `vite`, `gatsby develop`
+- `nuxt dev`, `astro dev`
+
+**Go**
+- `go run main.go`, `go run ./cmd/...`
+- `air` (hot reload)
+- `gin` (web framework)
+
+**Python**  
+- `flask run`, `uvicorn`, `gunicorn`
+- `python manage.py runserver` (Django)
+- `fastapi dev`
+
+**Rust**
+- `cargo run`, `trunk serve`
+
+**Static Site Generators**
+- `hugo server`, `jekyll serve`
+- `eleventy --serve`
+
+**Databases**
+- `mongodb`, `postgres`, `mysql`, `redis-server`
+
+**Development Tools**
+- `docker run -p`, `docker-compose up`
+- `serve`, `http-server`, `live-server`
+
+And many more! Each framework includes intelligent port detection and startup message parsing.
 
 ### Intelligent Duplicate Detection
 
@@ -316,13 +388,22 @@ JSON Response (proceed: true/false)
 ### Test Hook Integration
 
 ```bash
-# Test PreToolUse hook
+# Test PreToolUse hook with different frameworks
 echo '{"event":"preToolUse","tool_name":"Bash","parameters":{"command":"npm run dev"}}' | \
-  ./hooks/pretooluse.sh
+  portguard intercept
+
+echo '{"event":"preToolUse","tool_name":"Bash","parameters":{"command":"air"}}' | \
+  portguard intercept
+
+echo '{"event":"preToolUse","tool_name":"Bash","parameters":{"command":"turbo run dev"}}' | \
+  portguard intercept
 
 # Test PostToolUse hook
-echo '{"event":"postToolUse","tool_name":"Bash","parameters":{"command":"npm run dev"},"result":{"success":true,"output":"Server on 3000"}}' | \
-  ./hooks/posttooluse.sh
+echo '{"event":"postToolUse","tool_name":"Bash","parameters":{"command":"npm run dev"},"result":{"success":true,"output":"Server running on port 3000"}}' | \
+  portguard intercept
+
+# Test project-based commands
+portguard start api --config test-config.yml
 ```
 
 ### Run Test Suite

@@ -99,16 +99,9 @@ func (s *Scanner) ScanRange(startPort, endPort int) ([]process.PortInfo, error) 
 			if portInfo, err := s.GetPortInfo(port); err == nil {
 				result = append(result, *portInfo)
 			}
-		} else {
-			// Add info for unused ports as well
-			result = append(result, process.PortInfo{
-				Port:        port,
-				PID:         -1,
-				ProcessName: "",
-				IsManaged:   false,
-				Protocol:    "tcp", // Default to tcp
-			})
 		}
+		// FIXED: Only add ports that are actually in use
+		// Removed the else block that was adding unused ports
 	}
 
 	return result, nil
