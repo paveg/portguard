@@ -517,13 +517,14 @@ func TestEnsureDirectoryErrorCases(t *testing.T) {
 
 	t.Run("relative_path", func(t *testing.T) {
 		tempDir := t.TempDir()
-		testDir := filepath.Join(tempDir, "relative", "path")
+		testFile := filepath.Join(tempDir, "relative", "path", "file.txt")
 
-		err := EnsureDirectory(testDir)
+		err := EnsureDirectory(testFile)
 		assert.NoError(t, err)
 
-		// Verify directory was created
-		_, err = os.Stat(testDir)
+		// Verify directory was created (parent directory of the file)
+		parentDir := filepath.Dir(testFile)
+		_, err = os.Stat(parentDir)
 		assert.NoError(t, err)
 	})
 }

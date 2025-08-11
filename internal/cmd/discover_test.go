@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"testing"
 
@@ -19,27 +20,34 @@ func TestDiscoverCommand(t *testing.T) {
 	_ = os.Setenv("HOME", tempDir)
 
 	t.Run("discover_with_no_processes", func(t *testing.T) {
-		// Capture output
-		var buf bytes.Buffer
+		// Use a high port range unlikely to have processes
+		portRange = "65500-65535"
+		defer func() { portRange = "" }()
+
+		// Capture output using a different approach
 		oldStdout := os.Stdout
 		r, w, _ := os.Pipe()
 		os.Stdout = w
-		defer func() { os.Stdout = oldStdout }()
 
+		done := make(chan error, 1)
 		go func() {
 			defer func() { _ = w.Close() }()
-			err := runDiscoverCommand()
-			assert.NoError(t, err)
+			done <- runDiscoverCommand()
 		}()
 
-		// Read output
-		output := make([]byte, 1024)
-		n, _ := r.Read(output)
-		_ = r.Close()
-		buf.Write(output[:n])
+		// Wait for completion
+		err := <-done
+		os.Stdout = oldStdout
+		assert.NoError(t, err)
 
-		// Should find no development servers in default range
-		assert.Contains(t, buf.String(), "No development servers found")
+		// Read all output
+		var buf bytes.Buffer
+		_, _ = buf.ReadFrom(r)
+		_ = r.Close()
+
+		result := buf.String()
+		// Should find no development servers in high port range
+		assert.Contains(t, result, "No development servers found")
 	})
 
 	t.Run("discover_with_custom_range", func(t *testing.T) {
@@ -136,7 +144,14 @@ func TestOutputDiscoveryResultsJSON(t *testing.T) {
 	assert.Contains(t, result, "discovered_processes")
 	assert.Contains(t, result, "count")
 	assert.Contains(t, result, "suitable_count")
-	assert.Contains(t, result, "node")
+
+	// Parse JSON to verify structure
+	var jsonResult map[string]interface{}
+	err := json.Unmarshal([]byte(result), &jsonResult)
+	assert.NoError(t, err)
+	assert.Equal(t, float64(1), jsonResult["count"])
+	assert.Equal(t, float64(1), jsonResult["suitable_count"])
+	assert.NotNil(t, jsonResult["discovered_processes"])
 }
 
 func TestCreateDiscoveryManagementComponents(t *testing.T) {

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -158,5 +159,5 @@ func init() {
 
 // Helper function for JSON marshaling with indentation
 func jsonMarshalIndent(v interface{}) ([]byte, error) {
-	return fmt.Appendf(nil, "%+v", v), nil // Simplified for now
+	return json.MarshalIndent(v, "", "  ")
 }

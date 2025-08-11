@@ -68,7 +68,7 @@ func TestJsonMarshalIndent(t *testing.T) {
 		result, err := jsonMarshalIndent(nil)
 		require.NoError(t, err)
 		assert.NotNil(t, result)
-		assert.Contains(t, string(result), "<nil>")
+		assert.Equal(t, "null", string(result))
 	})
 
 	t.Run("marshal_number", func(t *testing.T) {
@@ -92,7 +92,7 @@ func TestJsonMarshalIndent(t *testing.T) {
 		result, err := jsonMarshalIndent(input)
 		require.NoError(t, err)
 		assert.NotNil(t, result)
-		assert.Contains(t, string(result), "map")
+		assert.Equal(t, "{}", string(result))
 	})
 
 	t.Run("marshal_empty_slice", func(t *testing.T) {

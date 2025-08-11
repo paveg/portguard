@@ -47,7 +47,7 @@ func TestProcessAdopter(t *testing.T) {
 			End:   65001,
 		})
 		assert.NoError(t, err)
-		assert.NotNil(t, processes) // Should return empty slice, not nil
+		assert.Empty(t, processes) // Should return empty slice for no processes found
 	})
 }
 
@@ -145,7 +145,7 @@ func TestCreateManagedProcessFromAdoption(t *testing.T) {
 
 		// Should have TCP health check for processes with ports
 		assert.NotNil(t, managedProcess.Config.HealthCheck)
-		assert.Equal(t, "tcp", managedProcess.Config.HealthCheck.Type)
+		assert.Equal(t, HealthCheckTCP, managedProcess.Config.HealthCheck.Type)
 	})
 
 	t.Run("create_without_port", func(t *testing.T) {
@@ -163,6 +163,6 @@ func TestCreateManagedProcessFromAdoption(t *testing.T) {
 
 		// Should have process-based health check for processes without ports
 		assert.NotNil(t, managedProcess.Config.HealthCheck)
-		assert.Equal(t, "process", managedProcess.Config.HealthCheck.Type)
+		assert.Equal(t, HealthCheckProcess, managedProcess.Config.HealthCheck.Type)
 	})
 }

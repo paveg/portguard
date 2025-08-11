@@ -26,6 +26,7 @@ const (
 	HealthCheckHTTP    HealthCheckType = "http"    // HTTP endpoint health check
 	HealthCheckTCP     HealthCheckType = "tcp"     // TCP connection health check
 	HealthCheckCommand HealthCheckType = "command" // Custom command health check
+	HealthCheckProcess HealthCheckType = "process" // Process health check (PID-based)
 	HealthCheckNone    HealthCheckType = "none"    // No health check
 )
 

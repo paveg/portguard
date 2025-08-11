@@ -710,6 +710,16 @@ func (pm *ProcessManager) runHealthCheck(ctx context.Context, process *ManagedPr
 		return pm.performTCPHealthCheck(healthCtx, process)
 	case HealthCheckCommand:
 		return pm.performCommandHealthCheck(healthCtx, process)
+	case HealthCheckProcess:
+		// Process health check using PID
+		if process.PID > 0 {
+			if osProcess, err := os.FindProcess(process.PID); err == nil {
+				if isProcessAlive(osProcess) {
+					return nil // Process is running, consider it healthy
+				}
+			}
+		}
+		return fmt.Errorf("process %s failed process health check", process.ID)
 	case HealthCheckNone:
 		return nil // No health check
 	default:

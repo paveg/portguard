@@ -29,7 +29,7 @@ func TestHookManager(t *testing.T) {
 		for i, template := range result.Templates {
 			templateNames[i] = template.Name
 		}
-		assert.Contains(t, templateNames, "minimal")
+		assert.Contains(t, templateNames, "basic")
 		assert.Contains(t, templateNames, "developer")
 		assert.Contains(t, templateNames, "advanced")
 	})

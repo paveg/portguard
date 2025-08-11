@@ -293,7 +293,7 @@ func (pa *ProcessAdopter) createManagedProcessFromAdoption(info *AdoptionInfo) (
 	// If no port detected, use process-based health check
 	if info.Port == 0 {
 		config.HealthCheck = &HealthCheck{
-			Type:     "process",
+			Type:     HealthCheckProcess,
 			Target:   strconv.Itoa(info.PID),
 			Timeout:  5 * time.Second,
 			Interval: 30 * time.Second,
