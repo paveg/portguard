@@ -617,3 +617,108 @@ func TestProcessManager_generateID(t *testing.T) {
 		})
 	}
 }
+
+func TestNewProcessManager_WithExistingState(t *testing.T) {
+	mockStore := &mockStateStore{}
+	mockLock := &mockLockManager{}
+	mockPortScanner := &mockPortScanner{}
+
+	// Test with existing state
+	existingProcesses := map[string]*ManagedProcess{
+		"process-1": {
+			ID:     "process-1",
+			PID:    1234,
+			Status: StatusRunning,
+		},
+		"process-2": {
+			ID:     "process-2", 
+			PID:    5678,
+			Status: StatusStopped,
+		},
+	}
+
+	mockStore.On("Load").Return(existingProcesses, nil)
+
+	manager := NewProcessManager(mockStore, mockLock, mockPortScanner)
+
+	require.NotNil(t, manager)
+	assert.Len(t, manager.processes, 2)
+	assert.Equal(t, existingProcesses["process-1"], manager.processes["process-1"])
+	assert.Equal(t, existingProcesses["process-2"], manager.processes["process-2"])
+
+	mockStore.AssertExpectations(t)
+}
+
+func TestProcessManager_AdoptProcess_Comprehensive(t *testing.T) {
+	t.Run("adopt_valid_process", func(t *testing.T) {
+		mockStore := &mockStateStore{}
+		mockLock := &mockLockManager{}
+		mockPortScanner := &mockPortScanner{}
+
+		mockStore.On("Load").Return(nil, fmt.Errorf("no state file"))
+		mockLock.On("Lock").Return(nil)
+		mockLock.On("Unlock").Return(nil)
+		mockStore.On("Save", mock.Anything).Return(nil)
+
+		manager := NewProcessManager(mockStore, mockLock, mockPortScanner)
+
+		processToAdopt := &ManagedProcess{
+			ID:         "test-process",
+			PID:        12345,
+			Status:     StatusRunning,
+			IsExternal: true,
+		}
+
+		err := manager.AdoptProcess(processToAdopt)
+		assert.NoError(t, err)
+		assert.Contains(t, manager.processes, "test-process")
+
+		mockStore.AssertExpectations(t)
+		mockLock.AssertExpectations(t)
+	})
+
+	t.Run("adopt_nil_process", func(t *testing.T) {
+		mockStore := &mockStateStore{}
+		mockLock := &mockLockManager{}
+		mockPortScanner := &mockPortScanner{}
+
+		mockStore.On("Load").Return(nil, fmt.Errorf("no state file"))
+		mockLock.On("Lock").Return(nil)
+		mockLock.On("Unlock").Return(nil)
+
+		manager := NewProcessManager(mockStore, mockLock, mockPortScanner)
+
+		err := manager.AdoptProcess(nil)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot adopt nil process")
+
+		mockStore.AssertExpectations(t)
+		mockLock.AssertExpectations(t)
+	})
+
+	t.Run("adopt_process_invalid_pid", func(t *testing.T) {
+		mockStore := &mockStateStore{}
+		mockLock := &mockLockManager{}
+		mockPortScanner := &mockPortScanner{}
+
+		mockStore.On("Load").Return(nil, fmt.Errorf("no state file"))
+		mockLock.On("Lock").Return(nil)
+		mockLock.On("Unlock").Return(nil)
+
+		manager := NewProcessManager(mockStore, mockLock, mockPortScanner)
+
+		processToAdopt := &ManagedProcess{
+			ID:         "test-process",
+			PID:        -1, // Invalid PID
+			Status:     StatusRunning,
+			IsExternal: true,
+		}
+
+		err := manager.AdoptProcess(processToAdopt)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid PID")
+
+		mockStore.AssertExpectations(t)
+		mockLock.AssertExpectations(t)
+	})
+}

@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/paveg/portguard/internal/config"
+	"github.com/paveg/portguard/internal/process"
+	"github.com/paveg/portguard/internal/state"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -67,4 +69,59 @@ func TestGetPortguardDir(t *testing.T) {
 	// Verify directory exists
 	_, err = os.Stat(dir)
 	assert.NoError(t, err)
+}
+
+func TestAddAdoptedProcess(t *testing.T) {
+	t.Run("successful_adoption", func(t *testing.T) {
+		// Create test config
+		cfg := &config.Config{}
+		
+		// Use real components for this test
+		stateStore, lockManager, portScanner, err := createManagementComponents(cfg)
+		require.NoError(t, err)
+		defer func() {
+			// Cleanup - remove any test files
+			if jsonStore, ok := stateStore.(*state.JSONStore); ok {
+				_ = os.Remove(jsonStore.GetFilePath())
+			}
+		}()
+
+		processManager := process.NewProcessManager(stateStore, lockManager, portScanner)
+
+		managedProcess := &process.ManagedProcess{
+			ID:         "test-process-add",
+			PID:        12345,
+			Status:     process.StatusRunning,
+			IsExternal: true,
+		}
+
+		err = addAdoptedProcess(processManager, managedProcess)
+		assert.NoError(t, err)
+
+		// Verify process was added
+		foundProcess, exists := processManager.GetProcess("test-process-add")
+		assert.True(t, exists)
+		assert.Equal(t, managedProcess, foundProcess)
+	})
+
+	t.Run("adoption_failure_nil_process", func(t *testing.T) {
+		// Create test config
+		cfg := &config.Config{}
+		
+		stateStore, lockManager, portScanner, err := createManagementComponents(cfg)
+		require.NoError(t, err)
+		defer func() {
+			// Cleanup
+			if jsonStore, ok := stateStore.(*state.JSONStore); ok {
+				_ = os.Remove(jsonStore.GetFilePath())
+			}
+		}()
+
+		processManager := process.NewProcessManager(stateStore, lockManager, portScanner)
+
+		// Test with nil process (should fail)
+		err = addAdoptedProcess(processManager, nil)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot adopt nil process")
+	})
 }
