@@ -6,7 +6,7 @@
 # Variables
 BINARY_NAME=portguard
 BUILD_DIR=bin
-VERSION?=0.2.4
+VERSION?=0.2.5
 LDFLAGS=-ldflags "-X github.com/paveg/portguard/internal/cmd.Version=$(VERSION)"
 
 # Default target
