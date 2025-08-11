@@ -237,38 +237,38 @@ func handlePostToolUse(request *InterceptRequest) {
 func isServerCommand(command string) bool {
 	patterns := []string{
 		// Node.js patterns
-		"npm run dev", "npm start", "yarn dev", "pnpm dev", "pnpm run dev", 
+		"npm run dev", "npm start", "yarn dev", "pnpm dev", "pnpm run dev",
 		"node .*\\.js", "next dev", "vite", "webpack-dev-server",
-		
+
 		// Modern JavaScript tooling
 		"turbo run dev", "turbo dev", "nx serve", "nx dev",
 		"bun run dev", "bun dev", "deno run.*dev",
-		
-		// Go patterns  
+
+		// Go patterns
 		"go run.*\\.go", "air", "gin", "realize start",
 		"go run main\\.go", "go run \\./cmd/.*",
-		
+
 		// Python patterns
 		"python.*-m http\\.server", "python3.*-m http\\.server",
-		"flask run", "python.*manage\\.py runserver", "uvicorn", 
+		"flask run", "python.*manage\\.py runserver", "uvicorn",
 		"gunicorn", "fastapi dev", "python.*-m flask run",
-		
+
 		// Rust patterns
 		"cargo run", "cargo watch -x run", "trunk serve",
-		
-		// Docker/Container patterns  
+
+		// Docker/Container patterns
 		"docker run.*-p \\d+", "docker-compose up", "podman run.*-p \\d+",
-		
+
 		// Other server patterns
 		"hugo server", "jekyll serve", "php.*-S", "rails server",
 		"serve", "http-server", "live-server", "browser-sync start",
-		
+
 		// Database servers
 		"mongodb", "postgres", "mysql", "redis-server",
-		
+
 		// Development proxy/tunneling
 		"ngrok http", "lt --port", "localtunnel",
-		
+
 		// Static site generators
 		"gatsby develop", "nuxt dev", "gridsome develop",
 		"eleventy --serve", "astro dev",
@@ -317,22 +317,22 @@ func extractDefaultPort(command string) int {
 	if jsPort := extractJavaScriptFrameworkPort(command); jsPort > 0 {
 		return jsPort
 	}
-	
-	// Go frameworks  
+
+	// Go frameworks
 	if goPort := extractGoFrameworkPort(command); goPort > 0 {
 		return goPort
 	}
-	
+
 	// Python frameworks
 	if pyPort := extractPythonFrameworkPort(command); pyPort > 0 {
 		return pyPort
 	}
-	
+
 	// Other frameworks and services
 	if otherPort := extractOtherFrameworkPort(command); otherPort > 0 {
 		return otherPort
 	}
-	
+
 	return 0
 }
 
@@ -380,8 +380,8 @@ func extractPythonFrameworkPort(command string) int {
 		//nolint:mnd // TODO: Extract to constant defaultFlaskPort = 5000
 		return 5000
 	}
-	if strings.Contains(command, "manage.py runserver") || strings.Contains(command, "uvicorn") || 
-		 strings.Contains(command, "gunicorn") || strings.Contains(command, "fastapi dev") {
+	if strings.Contains(command, "manage.py runserver") || strings.Contains(command, "uvicorn") ||
+		strings.Contains(command, "gunicorn") || strings.Contains(command, "fastapi dev") {
 		//nolint:mnd // TODO: Extract to constant defaultPythonWebPort = 8000
 		return 8000
 	}
@@ -398,7 +398,7 @@ func extractOtherFrameworkPort(command string) int {
 		//nolint:mnd // TODO: Extract to constant defaultTrunkPort = 8080
 		return 8080
 	}
-	
+
 	// Static site generators
 	if strings.Contains(command, "jekyll serve") {
 		//nolint:mnd // TODO: Extract to constant defaultJekyllPort = 4000
@@ -412,14 +412,14 @@ func extractOtherFrameworkPort(command string) int {
 		//nolint:mnd // TODO: Extract to constant defaultGenericWebPort = 8080
 		return 8080
 	}
-	
+
 	// Development servers (be more specific to avoid false matches)
-	if strings.Contains(command, "trunk serve") || strings.Contains(command, "jekyll serve") || 
-	   strings.HasPrefix(command, "serve ") || command == "serve" {
+	if strings.Contains(command, "trunk serve") || strings.Contains(command, "jekyll serve") ||
+		strings.HasPrefix(command, "serve ") || command == "serve" {
 		//nolint:mnd // TODO: Extract to constant defaultServePort = 5000
 		return 5000
 	}
-	
+
 	// Database servers
 	if strings.Contains(command, "mongodb") {
 		//nolint:mnd // TODO: Extract to constant defaultMongoPort = 27017
@@ -437,7 +437,7 @@ func extractOtherFrameworkPort(command string) int {
 		//nolint:mnd // TODO: Extract to constant defaultRedisPort = 6379
 		return 6379
 	}
-	
+
 	return 0
 }
 
@@ -453,48 +453,48 @@ func extractPortFromOutput(output string) int {
 		`https?://[^:]+:(\d+)`,
 		`serving at [^:]+:(\d+)`,
 		`server running on [^:]+:(\d+)`,
-		
+
 		// Framework-specific patterns
-		`Local:.*:(\d+)`,       // Vite, Webpack Dev Server
-		`Network:.*:(\d+)`,     // Vite, Webpack Dev Server  
-		`ready on [^:]*:(\d+)`, // Next.js
+		`Local:.*:(\d+)`,                // Vite, Webpack Dev Server
+		`Network:.*:(\d+)`,              // Vite, Webpack Dev Server
+		`ready on [^:]*:(\d+)`,          // Next.js
 		`started server on [^:]*:(\d+)`, // Next.js
-		`local:.*localhost:(\d+)`, // Gatsby
-		`on your network:.*:(\d+)`, // Gatsby
-		`listening at [^:]+:(\d+)`, // Express.js
+		`local:.*localhost:(\d+)`,       // Gatsby
+		`on your network:.*:(\d+)`,      // Gatsby
+		`listening at [^:]+:(\d+)`,      // Express.js
 		`server started at [^:]+:(\d+)`, // Various frameworks
-		
+
 		// Rust patterns
 		`listening on [^:]+:(\d+)`, // Actix, Warp
 		`serving on [^:]+:(\d+)`,   // Trunk
-		
-		// Go patterns  
-		`gin running on [^:]+:(\d+)`, // Gin
+
+		// Go patterns
+		`gin running on [^:]+:(\d+)`,           // Gin
 		`listening and serving on [^:]+:(\d+)`, // Go HTTP servers
-		
+
 		// Python patterns
-		`running on [^:]+:(\d+)`,        // Flask
+		`running on [^:]+:(\d+)`,            // Flask
 		`development server at [^:]+:(\d+)`, // Django
 		`uvicorn running on [^:]+:(\d+)`,    // Uvicorn
 		`application startup complete`,      // FastAPI (followed by address)
-		
+
 		// Database patterns
-		`listening on port (\d+)`,   // PostgreSQL, MySQL
-		`server is ready on port (\d+)`, // MongoDB
+		`listening on port (\d+)`,                   // PostgreSQL, MySQL
+		`server is ready on port (\d+)`,             // MongoDB
 		`ready to accept connections on port (\d+)`, // Redis
-		
+
 		// Development tools
 		`proxy server listening on [^:]+:(\d+)`, // Browser Sync
 		`live reload enabled on port (\d+)`,     // Live Server
 		`forwarding [^:]+:(\d+)`,                // ngrok
-		
+
 		// Container patterns
-		`exposed on.*:(\d+)`,           // Docker
-		`mapped to.*:(\d+)`,            // Docker port mapping
-		
+		`exposed on.*:(\d+)`, // Docker
+		`mapped to.*:(\d+)`,  // Docker port mapping
+
 		// Generic patterns (should be last to avoid false positives)
-		`\*:(\d+)`,                     // Wildcard binding
-		`bound to [^:]*:(\d+)`,         // Generic binding message
+		`\*:(\d+)`,             // Wildcard binding
+		`bound to [^:]*:(\d+)`, // Generic binding message
 	}
 
 	for _, pattern := range patterns {

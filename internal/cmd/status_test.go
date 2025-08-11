@@ -268,4 +268,3 @@ func (t *testStatusPortScanner) ScanRange(startPort, endPort int) ([]process.Por
 func (t *testStatusPortScanner) FindAvailablePort(startPort int) (int, error) {
 	return startPort, nil
 }
-

@@ -177,7 +177,7 @@ func TestNewStatusChecker(t *testing.T) {
 func TestStatusCheckerCheck(t *testing.T) {
 	t.Run("check_status_returns_valid_structure", func(t *testing.T) {
 		checker := &StatusChecker{}
-		
+
 		result, err := checker.Check()
 		require.NoError(t, err)
 		assert.NotNil(t, result)
@@ -185,7 +185,7 @@ func TestStatusCheckerCheck(t *testing.T) {
 		// Should have basic status information regardless of installation state
 		assert.NotNil(t, result.Messages)
 		assert.False(t, result.LastChecked.IsZero())
-		
+
 		// If installed, should have additional details
 		if result.Installed {
 			// When installed, config path should be set

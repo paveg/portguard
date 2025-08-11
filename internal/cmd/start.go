@@ -47,7 +47,7 @@ Examples:
 		var command string
 		var projectConfig *config.ProjectConfig
 		var isProject bool
-		
+
 		if cfg != nil {
 			if project, exists := cfg.GetProject(input); exists {
 				// Input is a project name
@@ -57,7 +57,7 @@ Examples:
 				fmt.Printf("Using project '%s' with command: %s\n", input, command)
 			}
 		}
-		
+
 		if !isProject {
 			// Input is a direct command
 			command = input
@@ -67,7 +67,7 @@ Examples:
 		// Use project configuration for defaults if available
 		effectivePort := port
 		effectiveHealthCheck := healthCheck
-		
+
 		if projectConfig != nil {
 			// Override with project config if not specified via flags
 			if port == 0 && projectConfig.Port > 0 {

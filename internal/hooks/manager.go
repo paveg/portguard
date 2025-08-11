@@ -414,7 +414,7 @@ func (s *StatusChecker) Check() (*StatusResult, error) {
 			// Found portguard hooks configuration file
 			result.Installed = true
 			result.ConfigPath = configPath
-			
+
 			// Try to read the configuration to get more details
 			if pgConfig, err := s.readPortguardConfig(pgConfigPath); err == nil {
 				result.Template = pgConfig.Template
