@@ -15,6 +15,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/paveg/portguard/internal/port"
 )
 
 // Static error variables to satisfy err113 linter
@@ -49,8 +51,8 @@ type LockManager interface {
 // PortScanner interface for scanning port usage
 type PortScanner interface {
 	IsPortInUse(port int) bool
-	GetPortInfo(port int) (*PortInfo, error)
-	ScanRange(startPort, endPort int) ([]PortInfo, error)
+	GetPortInfo(port int) (*port.PortInfo, error)
+	ScanRange(startPort, endPort int) ([]port.PortInfo, error)
 	FindAvailablePort(startPort int) (int, error)
 }
 
@@ -156,6 +158,58 @@ func (pm *ProcessManager) StartProcess(command string, args []string, options St
 	go pm.monitorProcessInBackground(actualProcess)
 
 	return actualProcess, nil
+}
+
+// AdoptProcess adopts an existing external process into management
+func (pm *ProcessManager) AdoptProcess(managedProcess *ManagedProcess) error {
+	if err := pm.lockManager.Lock(); err != nil {
+		return fmt.Errorf("failed to acquire lock: %w", err)
+	}
+	defer func() { _ = pm.lockManager.Unlock() }()
+
+	// Validate the process
+	if managedProcess == nil {
+		return fmt.Errorf("cannot adopt nil process")
+	}
+
+	if managedProcess.PID <= 0 {
+		return fmt.Errorf("invalid PID: %d", managedProcess.PID)
+	}
+
+	// Generate ID if not set
+	if managedProcess.ID == "" {
+		managedProcess.ID = pm.generateID(managedProcess.Command)
+	}
+
+	// Set adoption timestamp
+	managedProcess.CreatedAt = time.Now()
+	managedProcess.StartedAt = time.Now()
+	managedProcess.UpdatedAt = time.Now()
+	managedProcess.LastSeen = time.Now()
+
+	// Store the process
+	pm.mutex.Lock()
+	pm.processes[managedProcess.ID] = managedProcess
+	// Create a copy of the processes map for safe concurrent access to stateStore
+	processesCopy := make(map[string]*ManagedProcess)
+	for k, v := range pm.processes {
+		processesCopy[k] = v
+	}
+	pm.mutex.Unlock()
+
+	// Persist to storage
+	if err := pm.stateStore.Save(processesCopy); err != nil {
+		// Remove from memory if save failed
+		pm.mutex.Lock()
+		delete(pm.processes, managedProcess.ID)
+		pm.mutex.Unlock()
+		return fmt.Errorf("failed to save state: %w", err)
+	}
+
+	// Start background monitoring for the adopted process
+	go pm.monitorProcessInBackground(managedProcess)
+
+	return nil
 }
 
 // StopProcess stops a managed process

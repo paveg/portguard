@@ -52,7 +52,7 @@ default:
   cleanup:
     auto_cleanup: true
     max_idle_time: 1h
-    backup_retention: 7d
+    backup_retention: 168h
   
   log_level: info
 
