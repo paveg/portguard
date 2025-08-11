@@ -7,6 +7,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Project-Based Command Recognition**: Support for starting processes using project names from configuration
+  - `portguard start <project-name>` automatically uses project settings from config file
+  - Project configuration includes command, port, health check, environment variables, and working directory
+  - Enhanced CLI with `<command|project>` usage pattern
+
+- **Comprehensive Framework Support Expansion**: Added support for 40+ modern development frameworks
+  - **Modern JavaScript/Node.js**: pnpm, turbo (Turbo Repo), nx (Nx Monorepo), bun, deno, astro, nuxt, gatsby
+  - **Go Development Tools**: air (hot reload), gin (web framework), realize  
+  - **Python Web Frameworks**: gunicorn, fastapi dev, enhanced uvicorn support
+  - **Rust Development**: cargo run, trunk serve (WebAssembly)
+  - **Container/Docker**: docker run with port mapping, docker-compose up, podman
+  - **Database Servers**: mongodb, postgres, mysql, redis-server with standard ports
+  - **Static Site Generators**: eleventy, gridsome, enhanced hugo/jekyll support
+  - **Development Tools**: serve, http-server, live-server, browser-sync
+
+- **Advanced Port Detection and Output Parsing**:
+  - Framework-specific default ports (air:3000, nx:4200, gatsby:8000, gin:8080, trunk:8080, etc.)
+  - 25+ new output parsing patterns for server startup detection
+  - Enhanced patterns for Vite ("Local:", "Network:"), Next.js ("ready on"), Docker, databases
+  - Improved regex patterns for ngrok, localtunnel, and development proxies
+
+### Fixed
+
+- **Critical Port Scanning Bug**: Resolved false positive issue returning 6001 ports as "in use"
+  - Fixed ScanRange algorithm to return only actually used ports (removed PID=-1 entries)
+  - Updated test expectations to match corrected behavior
+  - Eliminated massive performance impact from processing unused ports
+
+- **Hook Status Detection**: Implemented proper installation status checking
+  - Fixed StatusChecker.Check() to actually detect installed .portguard-hooks.json files
+  - Added real file system verification instead of always returning "Not Installed"
+  - Enhanced hook status reporting with configuration path and version details
+
+- **CLI Version Display**: Updated version from 0.2.2 to 0.2.3 in Makefile build configuration
+
+### Improved
+
+- **Code Quality and Maintainability**:
+  - Refactored extractPort function to reduce cognitive complexity from 41 to manageable levels
+  - Split into 5 focused functions by framework category (JS, Go, Python, Other, Explicit)
+  - Fixed variable shadowing issues and improved error handling
+  - Enhanced test assertions using assert.Empty instead of assert.Len for empty checks
+
+- **Enhanced Configuration Support**:
+  - Fixed duration format parsing (changed "7d" to "168h" for Go compatibility)
+  - Added comprehensive project configuration examples in documentation
+  - Improved config loading error handling and user feedback
+
+### Technical Details
+
+**New Command Pattern Detection**:
+```bash
+# Modern JavaScript toolchains now supported
+portguard start "pnpm run dev"     # Uses port 3000
+portguard start "turbo run dev"    # Uses port 3000  
+portguard start "nx serve"         # Uses port 4200
+
+# Go development tools
+portguard start "air"              # Uses port 3000 (hot reload)
+portguard start "gin"              # Uses port 8080
+
+# Rust development
+portguard start "cargo run"        # Uses port 3000
+portguard start "trunk serve"      # Uses port 8080
+
+# Database servers with correct default ports
+portguard start "mongodb"          # Uses port 27017
+portguard start "postgres"         # Uses port 5432
+```
+
+**Project Configuration Enhancement**:
+```bash
+# Project-based commands now work seamlessly
+portguard start web --config .portguard.yml  # Uses projects.web settings
+portguard start api                           # Auto-loads project configuration
+```
+
+This release significantly improves Claude Code integration and modern development workflow compatibility, resolving all critical issues identified in Co-Habit project testing.
+
 ## [0.2.3] - 2025-08-11
 
 ### Added
