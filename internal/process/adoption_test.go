@@ -1,8 +1,10 @@
 package process
 
 import (
+	"encoding/json"
 	"os"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -164,5 +166,330 @@ func TestCreateManagedProcessFromAdoption(t *testing.T) {
 		// Should have process-based health check for processes without ports
 		assert.NotNil(t, managedProcess.Config.HealthCheck)
 		assert.Equal(t, HealthCheckProcess, managedProcess.Config.HealthCheck.Type)
+	})
+
+	t.Run("create_with_working_dir", func(t *testing.T) {
+		info := &AdoptionInfo{
+			PID:         67890,
+			ProcessName: "python",
+			Command:     "flask run --host=0.0.0.0 --port=5000",
+			Port:        5000,
+			WorkingDir:  "/app",
+			IsSuitable:  true,
+		}
+
+		managedProcess, err := adopter.createManagedProcessFromAdoption(info)
+		require.NoError(t, err)
+		assert.NotNil(t, managedProcess)
+		assert.Equal(t, info.WorkingDir, managedProcess.Config.WorkingDir)
+		assert.Contains(t, managedProcess.Config.ID, "adopted-67890")
+		assert.NotZero(t, managedProcess.StartedAt)
+	})
+}
+
+func TestAdoptProcessByPortWithRealScenarios(t *testing.T) {
+	adopter := NewProcessAdopter(5 * time.Second)
+
+	t.Run("adopt_by_port_missing_process", func(t *testing.T) {
+		// Test adopting by port when no process info is available
+		_, err := adopter.AdoptProcessByPort(65535) // Use very high port unlikely to be in use
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "not in use")
+	})
+
+	t.Run("adopt_by_port_scanner_error", func(t *testing.T) {
+		// Test with invalid port to trigger scanner error
+		_, err := adopter.AdoptProcessByPort(-1)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "not in use")
+	})
+}
+
+func TestDiscoverAdoptableProcessesExtended(t *testing.T) {
+	adopter := NewProcessAdopter(5 * time.Second)
+
+	t.Run("discover_with_valid_range", func(t *testing.T) {
+		// Test discovery in a range where we don't expect processes
+		portRange := PortRange{Start: 65000, End: 65010}
+		processes, err := adopter.DiscoverAdoptableProcesses(portRange)
+		assert.NoError(t, err)
+		assert.Empty(t, processes)
+		// In most cases, should be empty since high port range unlikely to have dev servers
+	})
+
+	t.Run("discover_with_invalid_range", func(t *testing.T) {
+		// Test with invalid port range
+		portRange := PortRange{Start: -1, End: 1000}
+		_, err := adopter.DiscoverAdoptableProcesses(portRange)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to discover development servers")
+	})
+}
+
+func TestEvaluateProcessSuitabilityComprehensive(t *testing.T) {
+	adopter := NewProcessAdopter(5 * time.Second)
+
+	testCases := []struct {
+		name           string
+		info           *AdoptionInfo
+		expectedSuitable bool
+		expectedReason   string
+	}{
+		{
+			name: "node_development_server",
+			info: &AdoptionInfo{
+				PID:         5000,
+				ProcessName: "node",
+				Command:     "npm run dev",
+			},
+			expectedSuitable: true,
+			expectedReason:   "development server detected",
+		},
+		{
+			name: "python_flask_server",
+			info: &AdoptionInfo{
+				PID:         5001,
+				ProcessName: "python",
+				Command:     "flask run --host=0.0.0.0",
+			},
+			expectedSuitable: true,
+			expectedReason:   "development server detected",
+		},
+		{
+			name: "go_development_with_air",
+			info: &AdoptionInfo{
+				PID:         5002,
+				ProcessName: "air",
+				Command:     "air -c .air.toml",
+			},
+			expectedSuitable: true,
+			expectedReason:   "development server detected",
+		},
+		{
+			name: "development_command_by_args",
+			info: &AdoptionInfo{
+				PID:         5003,
+				ProcessName: "custom-server",
+				Command:     "custom-server serve --watch",
+			},
+			expectedSuitable: true,
+			expectedReason:   "development command detected",
+		},
+		{
+			name: "yarn_dev_server",
+			info: &AdoptionInfo{
+				PID:         5004,
+				ProcessName: "yarn",
+				Command:     "yarn start",
+			},
+			expectedSuitable: true,
+			expectedReason:   "development server detected",
+		},
+		{
+			name: "system_process_low_pid_unix",
+			info: &AdoptionInfo{
+				PID:         100,
+				ProcessName: "systemd",
+				Command:     "/lib/systemd/systemd",
+			},
+			expectedSuitable: false,
+			expectedReason:   "system process",
+		},
+		{
+			name: "unrecognized_process",
+			info: &AdoptionInfo{
+				PID:         5005,
+				ProcessName: "unknown-app",
+				Command:     "/bin/unknown-app --config=/etc/app.conf",
+			},
+			expectedSuitable: false,
+			expectedReason:   "not a recognized",
+		},
+		{
+			name: "java_spring_boot",
+			info: &AdoptionInfo{
+				PID:         5006,
+				ProcessName: "java",
+				Command:     "java -jar spring-boot-app.jar",
+			},
+			expectedSuitable: true,
+			expectedReason:   "development server detected",
+		},
+		{
+			name: "dotnet_kestrel",
+			info: &AdoptionInfo{
+				PID:         5007,
+				ProcessName: "dotnet",
+				Command:     "dotnet run --urls http://localhost:5000",
+			},
+			expectedSuitable: true,
+			expectedReason:   "development server detected",
+		},
+		{
+			name: "ruby_rails_server",
+			info: &AdoptionInfo{
+				PID:         5008,
+				ProcessName: "ruby",
+				Command:     "rails server",
+			},
+			expectedSuitable: true,
+			expectedReason:   "development server detected",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			suitable, reason := adopter.evaluateProcessSuitability(tc.info)
+			assert.Equal(t, tc.expectedSuitable, suitable, "Suitability mismatch for %s", tc.name)
+			assert.Contains(t, reason, tc.expectedReason, "Reason mismatch for %s", tc.name)
+		})
+	}
+}
+
+func TestIsProcessRunningWindowsSpecific(t *testing.T) {
+	adopter := NewProcessAdopter(5 * time.Second)
+
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows-specific test")
+	}
+
+	t.Run("windows_process_running_check", func(t *testing.T) {
+		// Test current process (should be running)
+		currentPID := os.Getpid()
+		running := adopter.isProcessRunningWindows(currentPID)
+		assert.True(t, running)
+
+		// Test with very high PID (should not exist)
+		running = adopter.isProcessRunningWindows(999999)
+		assert.False(t, running)
+	})
+}
+
+func TestGetProcessInfoEdgeCases(t *testing.T) {
+	adopter := NewProcessAdopter(2 * time.Second)
+
+	t.Run("get_info_for_current_process", func(t *testing.T) {
+		// Test getting info for current process (should work)
+		currentPID := os.Getpid()
+		info, err := adopter.GetProcessInfo(currentPID)
+		assert.NoError(t, err)
+		assert.NotNil(t, info)
+		assert.Equal(t, currentPID, info.PID)
+		// The result will depend on the actual process name but should not be empty
+		assert.NotEmpty(t, info.ProcessName)
+	})
+
+	t.Run("get_info_for_invalid_pid", func(t *testing.T) {
+		// Test with invalid PID
+		info, err := adopter.GetProcessInfo(-5)
+		assert.NoError(t, err) // Should not error, but process should be unsuitable
+		assert.NotNil(t, info)
+		assert.False(t, info.IsSuitable)
+		assert.NotEmpty(t, info.Reason)
+		assert.Contains(t, info.Reason, "failed to get process info")
+	})
+
+	t.Run("get_info_zero_pid", func(t *testing.T) {
+		// Test with PID 0 (special case)
+		info, err := adopter.GetProcessInfo(0)
+		assert.NoError(t, err)
+		assert.NotNil(t, info)
+		assert.False(t, info.IsSuitable)
+	})
+}
+
+func TestAdoptProcessByPIDErrorConditions(t *testing.T) {
+	adopter := NewProcessAdopter(2 * time.Second)
+
+	t.Run("adopt_zero_pid", func(t *testing.T) {
+		_, err := adopter.AdoptProcessByPID(0)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid PID")
+	})
+
+	t.Run("adopt_negative_pid", func(t *testing.T) {
+		_, err := adopter.AdoptProcessByPID(-10)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid PID")
+	})
+
+	t.Run("adopt_nonexistent_pid_large", func(t *testing.T) {
+		// Test with very large PID that should not exist
+		_, err := adopter.AdoptProcessByPID(999999)
+		assert.Error(t, err)
+		// Could be process not found or process not running
+		assert.True(t, 
+			strings.Contains(err.Error(), "not found") || 
+			strings.Contains(err.Error(), "no longer running"),
+			"Expected 'not found' or 'no longer running' error, got: %v", err)
+	})
+}
+
+func TestProcessAdopterErrorVariables(t *testing.T) {
+	t.Run("error_variables_defined", func(t *testing.T) {
+		// Test that error variables are properly defined
+		assert.NotNil(t, ErrProcessNotSuitable)
+		assert.NotNil(t, ErrSystemProcess)
+		assert.NotNil(t, ErrInsufficientPerms)
+		assert.NotNil(t, ErrProcessAlreadyDead)
+
+		// Test error messages
+		assert.Contains(t, ErrProcessNotSuitable.Error(), "not suitable")
+		assert.Contains(t, ErrSystemProcess.Error(), "system process")
+		assert.Contains(t, ErrInsufficientPerms.Error(), "permissions")
+		assert.Contains(t, ErrProcessAlreadyDead.Error(), "no longer running")
+	})
+}
+
+func TestAdoptionInfoStructure(t *testing.T) {
+	t.Run("adoption_info_json_tags", func(t *testing.T) {
+		// Test that AdoptionInfo struct can be marshaled to JSON
+		info := &AdoptionInfo{
+			PID:         1234,
+			ProcessName: "test-process",
+			Command:     "test-command --arg",
+			Port:        8080,
+			WorkingDir:  "/test/dir",
+			IsSuitable:  true,
+			Reason:      "test reason",
+		}
+
+		// Should be able to marshal to JSON without issues
+		jsonData, err := json.Marshal(info)
+		assert.NoError(t, err)
+		assert.Contains(t, string(jsonData), "test-process")
+		assert.Contains(t, string(jsonData), "8080")
+
+		// Should be able to unmarshal back
+		var unmarshaled AdoptionInfo
+		err = json.Unmarshal(jsonData, &unmarshaled)
+		assert.NoError(t, err)
+		assert.Equal(t, info.PID, unmarshaled.PID)
+		assert.Equal(t, info.ProcessName, unmarshaled.ProcessName)
+		assert.Equal(t, info.IsSuitable, unmarshaled.IsSuitable)
+	})
+
+	t.Run("adoption_info_omitempty", func(t *testing.T) {
+		// Test omitempty behavior for optional fields
+		info := &AdoptionInfo{
+			PID:         1234,
+			ProcessName: "test-process",
+			Command:     "test-command",
+			// Port: 0 - should be omitted
+			// WorkingDir: "" - should be omitted
+			IsSuitable: false,
+			// Reason: "" - should be omitted
+		}
+
+		jsonData, err := json.Marshal(info)
+		assert.NoError(t, err)
+
+		jsonString := string(jsonData)
+		// Port should be omitted when 0
+		assert.NotContains(t, jsonString, "port")
+		// WorkingDir should be omitted when empty
+		assert.NotContains(t, jsonString, "working_dir")
+		// Reason should be omitted when empty
+		assert.NotContains(t, jsonString, "reason")
 	})
 }
