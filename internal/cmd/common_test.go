@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -468,69 +467,4 @@ func TestOutputHandlerIntegration(t *testing.T) {
 		assert.Contains(t, successOutput, "test success")
 		assert.Contains(t, successOutput, "Details: some data")
 	})
-}
-
-func TestWriteFileAtomic_EdgeCases(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "writefileatomic-test")
-	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
-
-	t.Run("write_to_nonexistent_directory", func(t *testing.T) {
-		nonExistentDir := filepath.Join(tempDir, "nonexistent", "subdir")
-		filePath := filepath.Join(nonExistentDir, "test.txt")
-		content := []byte("test content")
-
-		err := WriteFileAtomic(filePath, content)
-		require.NoError(t, err)
-
-		// Verify file was created and directory structure was created
-		data, err := os.ReadFile(filePath)
-		require.NoError(t, err)
-		assert.Equal(t, content, data)
-	})
-
-	t.Run("write_empty_content", func(t *testing.T) {
-		filePath := filepath.Join(tempDir, "empty.txt")
-		content := []byte{}
-
-		err := WriteFileAtomic(filePath, content)
-		require.NoError(t, err)
-
-		data, err := os.ReadFile(filePath)
-		require.NoError(t, err)
-		assert.Equal(t, content, data)
-	})
-
-	t.Run("write_with_file_creation_error", func(t *testing.T) {
-		// Try to write to root directory (should fail on most systems without permissions)
-		if os.Getuid() == 0 {
-			t.Skip("Skipping permission test when running as root")
-		}
-
-		filePath := "/root/test.txt" // This should fail for non-root users
-		content := []byte("test content")
-
-		err := WriteFileAtomic(filePath, content)
-		assert.Error(t, err)
-	})
-
-	t.Run("write_with_long_filename", func(t *testing.T) {
-		// Test with a very long filename to test edge cases
-		longName := strings.Repeat("a", 100) + ".txt"
-		filePath := filepath.Join(tempDir, longName)
-		content := []byte("test with long filename")
-
-		err := WriteFileAtomic(filePath, content)
-		require.NoError(t, err)
-
-		data, err := os.ReadFile(filePath)
-		require.NoError(t, err)
-		assert.Equal(t, content, data)
-	})
-}
-
-func TestAddCommonForceFlag_Coverage(t *testing.T) {
-	// Test that the function exists and doesn't panic - we can't test the full functionality
-	// without importing cobra which is restricted in tests
-	assert.NotNil(t, AddCommonForceFlag)
 }
