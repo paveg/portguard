@@ -151,7 +151,7 @@ func executeInterceptCmd(t *testing.T, input string) (string, error) {
 	}
 
 	// Close write end and wait for output
-	writer.Close()
+	_ = writer.Close() // Close pipe to signal end of input
 	<-done
 
 	return outputBuf.String(), nil
@@ -780,7 +780,7 @@ func TestOutputErrorResponse(t *testing.T) {
 
 		outputErrorResponse(testErr)
 
-		writer.Close()
+		_ = writer.Close() // Close pipe to signal end of input
 		output, _ := io.ReadAll(reader)
 
 		var response PreToolUseResponse

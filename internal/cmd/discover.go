@@ -50,37 +50,37 @@ func runDiscoverCommand() error {
 	adopter := process.NewProcessAdopter(30 * time.Second)
 
 	// Parse port range or use default
-	var startPort, endPort int
+	var rangeStart, rangeEnd int
 	if portRange != "" {
 		scanner := portpkg.NewScanner(5 * time.Second)
-		startPort, endPort, err = scanner.ParsePortRange(portRange)
+		rangeStart, rangeEnd, err = scanner.ParsePortRange(portRange)
 		if err != nil {
 			return fmt.Errorf("invalid port range %s: %w", portRange, err)
 		}
 	} else {
 		// Use default range from config or fallback
 		if cfg.Default != nil && cfg.Default.PortRange != nil {
-			startPort = cfg.Default.PortRange.Start
-			endPort = cfg.Default.PortRange.End
+			rangeStart = cfg.Default.PortRange.Start
+			rangeEnd = cfg.Default.PortRange.End
 		} else {
-			startPort = 3000
-			endPort = 9000
+			rangeStart = 3000
+			rangeEnd = 9000
 		}
 	}
 
-	fmt.Printf("Discovering development servers in port range %d-%d...\n", startPort, endPort)
+	fmt.Printf("Discovering development servers in port range %d-%d...\n", rangeStart, rangeEnd)
 
 	// Discover adoptable processes
 	adoptableProcesses, err := adopter.DiscoverAdoptableProcesses(process.PortRange{
-		Start: startPort,
-		End:   endPort,
+		Start: rangeStart,
+		End:   rangeEnd,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to discover processes: %w", err)
 	}
 
 	if len(adoptableProcesses) == 0 {
-		fmt.Printf("No development servers found in port range %d-%d\n", startPort, endPort)
+		fmt.Printf("No development servers found in port range %d-%d\n", rangeStart, rangeEnd)
 		return nil
 	}
 

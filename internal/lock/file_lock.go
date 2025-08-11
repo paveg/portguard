@@ -82,10 +82,10 @@ func (fl *FileLock) Lock() error {
 			// Write PID, timestamp, and instance ID to lock file
 			lockData := fmt.Sprintf("%d\n%d\n%d\n", pid, timestamp, fl.instanceID)
 			if _, err := file.WriteString(lockData); err != nil {
-				file.Close()
+				_ = file.Close() // Best effort cleanup on error
 				return fmt.Errorf("failed to write lock data: %w", err)
 			}
-			file.Close()
+			_ = file.Close() // Close lock file after writing
 
 			// Set locked flag under mutex protection
 			fl.mu.Lock()

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/paveg/portguard/internal/process"
@@ -203,7 +204,7 @@ func (js *JSONStore) CleanupOldBackups(maxAge time.Duration) error {
 		}
 
 		name := entry.Name()
-		if !filepath.HasPrefix(name, baseFileName+".backup.") {
+		if !strings.HasPrefix(name, baseFileName+".backup.") {
 			continue
 		}
 

@@ -254,19 +254,21 @@ func (s *Scanner) parseNetstatOutputWindows(output string, targetPort int) (int,
 				// Last field contains PID
 				if pid, err := strconv.Atoi(fields[len(fields)-1]); err == nil {
 					// Try to get process name using tasklist
-					ctx, cancel := context.WithTimeout(context.Background(), s.timeout)
-					defer cancel()
+					processName := func() string {
+						ctx, cancel := context.WithTimeout(context.Background(), s.timeout)
+						defer cancel()
 
-					tasklistCmd := exec.CommandContext(ctx, "tasklist", "/FI", fmt.Sprintf("PID eq %d", pid), "/FO", "CSV", "/NH")
-					tasklistOutput, tasklistErr := tasklistCmd.Output()
-					if tasklistErr == nil {
-						// Parse CSV output to get process name
-						if processName := s.parseTasklistOutput(string(tasklistOutput)); processName != "" {
-							return pid, processName, nil
+						tasklistCmd := exec.CommandContext(ctx, "tasklist", "/FI", fmt.Sprintf("PID eq %d", pid), "/FO", "CSV", "/NH")
+						tasklistOutput, tasklistErr := tasklistCmd.Output()
+						if tasklistErr == nil {
+							// Parse CSV output to get process name
+							if name := s.parseTasklistOutput(string(tasklistOutput)); name != "" {
+								return name
+							}
 						}
-					}
-					// If tasklist fails, return PID without name
-					return pid, UnknownProcessName, nil
+						return UnknownProcessName
+					}()
+					return pid, processName, nil
 				}
 			}
 		}

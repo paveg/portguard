@@ -17,7 +17,7 @@ func TestHealthCommand_SingleProcess(t *testing.T) {
 	// Create temporary directory for test state
 	tempDir, err := os.MkdirTemp("", "portguard-health-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }() // Best effort cleanup during test
 
 	// Setup process manager
 	pm := createTestProcessManager(t, tempDir)
@@ -102,7 +102,7 @@ func TestHealthCommand_AllProcesses(t *testing.T) {
 			// Create temporary directory for test state
 			tempDir, err := os.MkdirTemp("", "portguard-health-all-test")
 			require.NoError(t, err)
-			defer os.RemoveAll(tempDir)
+			defer func() { _ = os.RemoveAll(tempDir) }() // Best effort cleanup during test
 
 			// Setup mock process manager
 			pm := createTestProcessManager(t, tempDir)
@@ -122,7 +122,7 @@ func TestHealthCommand_Integration(t *testing.T) {
 	// Create temporary directory for test state
 	tempDir, err := os.MkdirTemp("", "portguard-health-integration-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }() // Best effort cleanup during test
 
 	// Test basic functionality without cobra dependency
 	pm := createTestProcessManager(t, tempDir)
@@ -189,7 +189,7 @@ func TestPerformHealthCheck_Coverage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tempDir, err := os.MkdirTemp("", "portguard-health-check-test")
 			require.NoError(t, err)
-			defer os.RemoveAll(tempDir)
+			defer func() { _ = os.RemoveAll(tempDir) }() // Best effort cleanup during test
 
 			pm := createTestProcessManager(t, tempDir)
 

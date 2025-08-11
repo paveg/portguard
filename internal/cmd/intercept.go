@@ -529,7 +529,7 @@ func extractPortFromOutput(output string) int {
 		if matches := re.FindStringSubmatch(output); len(matches) > 1 {
 			//nolint:govet // TODO: Rename variable to avoid shadowing (e.g., parsedPort)
 			var port int
-			fmt.Sscanf(matches[1], "%d", &port)
+			_, _ = fmt.Sscanf(matches[1], "%d", &port)
 			if port > 0 {
 				return port
 			}

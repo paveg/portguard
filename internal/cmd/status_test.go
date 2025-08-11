@@ -17,7 +17,7 @@ func TestHandleSingleProcessStatus(t *testing.T) {
 	// Create temporary directory for test
 	tempDir, err := os.MkdirTemp("", "portguard-status-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }() // Best effort cleanup during test
 
 	// Setup process manager
 	pm := createStatusTestProcessManager(t, tempDir)
@@ -32,7 +32,7 @@ func TestHandleSystemStatus(t *testing.T) {
 	// Create temporary directory for test
 	tempDir, err := os.MkdirTemp("", "portguard-system-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }() // Best effort cleanup during test
 
 	// Setup process manager
 	pm := createStatusTestProcessManager(t, tempDir)
@@ -46,7 +46,7 @@ func TestConvertToProcessStatus(t *testing.T) {
 	// Create temporary directory for test
 	tempDir, err := os.MkdirTemp("", "portguard-convert-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }() // Best effort cleanup during test
 
 	// Create scanner
 	scanner := portpkg.NewScanner(5 * time.Second)
@@ -143,7 +143,7 @@ func TestStatusCommandWithJSONOutput(t *testing.T) {
 		// Create temporary directory for test
 		tempDir, err := os.MkdirTemp("", "portguard-json-test")
 		require.NoError(t, err)
-		defer os.RemoveAll(tempDir)
+		defer func() { _ = os.RemoveAll(tempDir) }() // Best effort cleanup during test
 
 		// Setup process manager
 		pm := createStatusTestProcessManager(t, tempDir)
@@ -161,7 +161,7 @@ func TestStatusCommandWithJSONOutput(t *testing.T) {
 		// Create temporary directory for test
 		tempDir, err := os.MkdirTemp("", "portguard-system-json-test")
 		require.NoError(t, err)
-		defer os.RemoveAll(tempDir)
+		defer func() { _ = os.RemoveAll(tempDir) }() // Best effort cleanup during test
 
 		// Setup process manager
 		pm := createStatusTestProcessManager(t, tempDir)
@@ -180,7 +180,7 @@ func TestStatusCommandEdgeCases(t *testing.T) {
 	t.Run("status_with_nil_health_check", func(t *testing.T) {
 		tempDir, err := os.MkdirTemp("", "portguard-nil-health-test")
 		require.NoError(t, err)
-		defer os.RemoveAll(tempDir)
+		defer func() { _ = os.RemoveAll(tempDir) }() // Best effort cleanup during test
 
 		scanner := portpkg.NewScanner(5 * time.Second)
 
@@ -203,7 +203,7 @@ func TestStatusCommandEdgeCases(t *testing.T) {
 	t.Run("status_with_port_info", func(t *testing.T) {
 		tempDir, err := os.MkdirTemp("", "portguard-port-info-test")
 		require.NoError(t, err)
-		defer os.RemoveAll(tempDir)
+		defer func() { _ = os.RemoveAll(tempDir) }() // Best effort cleanup during test
 
 		scanner := portpkg.NewScanner(5 * time.Second)
 

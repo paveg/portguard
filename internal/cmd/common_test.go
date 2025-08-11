@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -48,7 +49,7 @@ func TestOutputHandler_PrintJSON(t *testing.T) {
 		require.NoError(t, err)
 
 		// Close writer and read output
-		writer.Close()
+		_ = writer.Close() // Best effort cleanup during test
 		output, _ := io.ReadAll(reader)
 
 		// Verify JSON structure
@@ -71,7 +72,7 @@ func TestOutputHandler_PrintJSON(t *testing.T) {
 		assert.ErrorIs(t, err, ErrNotInJSONMode)
 	})
 
-	writer.Close()
+	_ = writer.Close() // Best effort cleanup during test
 }
 
 func TestOutputHandler_PrintError(t *testing.T) {
@@ -90,7 +91,7 @@ func TestOutputHandler_PrintError(t *testing.T) {
 
 		handler.PrintError("test message", testErr)
 
-		writer.Close()
+		_ = writer.Close() // Best effort cleanup during test
 		output, _ := io.ReadAll(reader)
 
 		var result map[string]interface{}
@@ -110,7 +111,7 @@ func TestOutputHandler_PrintError(t *testing.T) {
 
 		handler.PrintError("test message", nil)
 
-		writer.Close()
+		_ = writer.Close() // Best effort cleanup during test
 		output, _ := io.ReadAll(reader)
 
 		var result map[string]interface{}
@@ -131,7 +132,7 @@ func TestOutputHandler_PrintError(t *testing.T) {
 
 		handler.PrintError("test message", testErr)
 
-		writer.Close()
+		_ = writer.Close() // Best effort cleanup during test
 		output, _ := io.ReadAll(reader)
 
 		outputStr := string(output)
@@ -147,7 +148,7 @@ func TestOutputHandler_PrintError(t *testing.T) {
 
 		handler.PrintError("test message", nil)
 
-		writer.Close()
+		_ = writer.Close() // Best effort cleanup during test
 		output, _ := io.ReadAll(reader)
 
 		outputStr := string(output)
@@ -172,7 +173,7 @@ func TestOutputHandler_PrintSuccess(t *testing.T) {
 
 		handler.PrintSuccess("success message", testData)
 
-		writer.Close()
+		_ = writer.Close() // Best effort cleanup during test
 		output, _ := io.ReadAll(reader)
 
 		var result map[string]interface{}
@@ -192,7 +193,7 @@ func TestOutputHandler_PrintSuccess(t *testing.T) {
 
 		handler.PrintSuccess("success message")
 
-		writer.Close()
+		_ = writer.Close() // Best effort cleanup during test
 		output, _ := io.ReadAll(reader)
 
 		var result map[string]interface{}
@@ -213,7 +214,7 @@ func TestOutputHandler_PrintSuccess(t *testing.T) {
 
 		handler.PrintSuccess("success message", testData)
 
-		writer.Close()
+		_ = writer.Close() // Best effort cleanup during test
 		output, _ := io.ReadAll(reader)
 
 		outputStr := string(output)
@@ -230,7 +231,7 @@ func TestOutputHandler_PrintSuccess(t *testing.T) {
 
 		handler.PrintSuccess("success message")
 
-		writer.Close()
+		_ = writer.Close() // Best effort cleanup during test
 		output, _ := io.ReadAll(reader)
 
 		outputStr := string(output)
@@ -419,7 +420,7 @@ func captureOutput(f func()) string {
 
 	f()
 
-	writer.Close()
+	_ = writer.Close() // Best effort cleanup during test
 	os.Stdout = oldStdout
 
 	var buf bytes.Buffer
@@ -466,5 +467,63 @@ func TestOutputHandlerIntegration(t *testing.T) {
 
 		assert.Contains(t, successOutput, "test success")
 		assert.Contains(t, successOutput, "Details: some data")
+	})
+}
+
+func TestAddCommonForceFlag(t *testing.T) {
+	// Test that AddCommonForceFlag doesn't panic and can be called
+	cmd := &cobra.Command{
+		Use: "test",
+	}
+
+	// This function should add a force flag
+	AddCommonForceFlag(cmd, "")
+
+	// Verify the flag was added
+	flag := cmd.Flags().Lookup("force")
+	assert.NotNil(t, flag)
+	assert.Equal(t, "f", flag.Shorthand)
+}
+
+func TestWriteFileAtomicErrorCases(t *testing.T) {
+	t.Run("invalid_directory", func(t *testing.T) {
+		// Try to write to a path with invalid parent directory
+		err := WriteFileAtomic("/nonexistent/directory/file.txt", []byte("test"))
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to create directory")
+	})
+
+	t.Run("permission_denied", func(t *testing.T) {
+		// This test might not work on all systems, so we'll just ensure the function
+		// handles errors gracefully by testing with a read-only directory
+		tempDir := t.TempDir()
+		readOnlyDir := filepath.Join(tempDir, "readonly")
+		err := os.Mkdir(readOnlyDir, 0o444) // Read-only directory
+		require.NoError(t, err)
+
+		// Attempt to write to read-only directory
+		err = WriteFileAtomic(filepath.Join(readOnlyDir, "file.txt"), []byte("test"))
+		// Should error (exact error depends on OS)
+		assert.Error(t, err)
+	})
+}
+
+func TestEnsureDirectoryErrorCases(t *testing.T) {
+	t.Run("current_directory", func(t *testing.T) {
+		// Test with current directory (should succeed)
+		err := EnsureDirectory(".")
+		assert.NoError(t, err)
+	})
+
+	t.Run("relative_path", func(t *testing.T) {
+		tempDir := t.TempDir()
+		testDir := filepath.Join(tempDir, "relative", "path")
+
+		err := EnsureDirectory(testDir)
+		assert.NoError(t, err)
+
+		// Verify directory was created
+		_, err = os.Stat(testDir)
+		assert.NoError(t, err)
 	})
 }

@@ -107,11 +107,11 @@ func setupTestProcessManager(t *testing.T) (*ProcessManager, *mockStateStore, *m
 }
 
 // Helper function to create test ManagedProcess
-func createTestProcess(id, command string, port int, status ProcessStatus) *ManagedProcess {
+func createTestProcess(id, command string, portNum int, status ProcessStatus) *ManagedProcess {
 	return &ManagedProcess{
 		ID:        id,
 		Command:   command,
-		Port:      port,
+		Port:      portNum,
 		PID:       1000 + len(id), // Dynamic PID based on ID length
 		Status:    status,
 		CreatedAt: time.Now().Add(-time.Hour),
@@ -541,8 +541,8 @@ func TestProcessManager_ConcurrentOperations(t *testing.T) {
 
 			// Start a process
 			command := fmt.Sprintf("test-command-%d", id)
-			port := 3000 + id
-			options := StartOptions{Port: port}
+			portNum := 3000 + id
+			options := StartOptions{Port: portNum}
 
 			process, err := pm.StartProcess(command, []string{}, options)
 			if err == nil {

@@ -119,7 +119,7 @@ func (pm *ProcessManager) StartProcess(command string, args []string, options St
 	if err := pm.lockManager.Lock(); err != nil {
 		return nil, fmt.Errorf("failed to acquire lock: %w", err)
 	}
-	defer func() { _ = pm.lockManager.Unlock() }() //nolint:errcheck // Defer unlock completes regardless
+	defer func() { _ = pm.lockManager.Unlock() }() //nolint:errcheck // Defer unlock completes regardless //nolint:errcheck // Defer unlock completes regardless
 
 	// Check if we should start a new process
 	shouldStart, existing := pm.ShouldStartNew(command, options.Port)
@@ -165,7 +165,7 @@ func (pm *ProcessManager) AdoptProcess(managedProcess *ManagedProcess) error {
 	if err := pm.lockManager.Lock(); err != nil {
 		return fmt.Errorf("failed to acquire lock: %w", err)
 	}
-	defer func() { _ = pm.lockManager.Unlock() }()
+	defer func() { _ = pm.lockManager.Unlock() }() //nolint:errcheck // Defer unlock completes regardless
 
 	// Validate the process
 	if managedProcess == nil {
@@ -217,7 +217,7 @@ func (pm *ProcessManager) StopProcess(id string, forceKill bool) error {
 	if err := pm.lockManager.Lock(); err != nil {
 		return fmt.Errorf("failed to acquire lock: %w", err)
 	}
-	defer func() { _ = pm.lockManager.Unlock() }() //nolint:errcheck // Defer unlock completes regardless
+	defer func() { _ = pm.lockManager.Unlock() }() //nolint:errcheck // Defer unlock completes regardless //nolint:errcheck // Defer unlock completes regardless
 
 	pm.mutex.Lock()
 	process, exists := pm.processes[id]
@@ -283,7 +283,7 @@ func (pm *ProcessManager) CleanupProcesses(force bool) error {
 	if err := pm.lockManager.Lock(); err != nil {
 		return fmt.Errorf("failed to acquire lock: %w", err)
 	}
-	defer func() { _ = pm.lockManager.Unlock() }() //nolint:errcheck // Defer unlock completes regardless
+	defer func() { _ = pm.lockManager.Unlock() }() //nolint:errcheck // Defer unlock completes regardless //nolint:errcheck // Defer unlock completes regardless
 
 	pm.mutex.Lock()
 	defer pm.mutex.Unlock()
