@@ -322,6 +322,98 @@ for range data {
 }
 ```
 
+## Development Workflow Requirements
+
+### Branch Management
+
+**ALWAYS create a new branch before starting work**:
+
+```bash
+# ✅ Required workflow
+git switch main
+git pull origin main
+git switch -c feature/your-feature-name
+
+# Work on changes...
+
+# Push feature branch and create PR
+git push -u origin feature/your-feature-name
+gh pr create --title "feat: your feature description" --body "..."
+```
+
+**NEVER push directly to main branch**:
+
+- ❌ **Prohibited**: `git push origin main`
+- ✅ **Required**: Always use pull requests for code review
+- All changes must go through the PR process
+- Main branch is protected and should only receive merged PRs
+
+### Commit Guidelines
+
+**Make commits in logical, atomic units**:
+
+```bash
+# ✅ Good - each commit represents one logical change
+git add internal/cmd/health.go
+git commit -m "feat: implement HTTP health checks"
+
+git add internal/cmd/health.go internal/process/manager.go  
+git commit -m "feat: add TCP health check support"
+
+git add internal/cmd/ports.go
+git commit -m "feat: implement port scanning functionality"
+```
+
+**Commit message format**:
+
+```
+type(scope): description
+
+feat: new feature
+fix: bug fix
+refactor: code restructuring
+docs: documentation changes
+test: test additions/changes
+ci: CI/CD changes
+```
+
+### Release Management
+
+**ALWAYS update CHANGELOG.md before cutting a release**:
+
+1. **Before creating any release**:
+   ```bash
+   # Update CHANGELOG.md with new version section
+   vim CHANGELOG.md
+   
+   # Commit changelog update
+   git add CHANGELOG.md
+   git commit -m "docs: update changelog for v1.2.0"
+   
+   # Then create release
+   git tag v1.2.0
+   git push origin v1.2.0
+   ```
+
+2. **CHANGELOG.md format**:
+   ```markdown
+   # Changelog
+   
+   ## [1.2.0] - 2025-08-11
+   
+   ### Added
+   - Complete health check system (HTTP/TCP/Command)
+   - Port scanning functionality
+   - Process status reporting
+   
+   ### Fixed
+   - ProcessManager cleanup now properly terminates processes
+   - Resolved all linting issues
+   
+   ### Changed
+   - Improved error handling throughout codebase
+   ```
+
 ## Mandatory Pre-Commit Checks
 
 Before any code changes:
