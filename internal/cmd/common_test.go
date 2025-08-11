@@ -414,7 +414,7 @@ func TestCommonErrors(t *testing.T) {
 // Test that captures stdout properly for multiple test runs
 func captureOutput(f func()) string {
 	oldStdout := os.Stdout
-	r, writer, _ := os.Pipe()
+	reader, writer, _ := os.Pipe()
 	os.Stdout = writer
 
 	f()
@@ -423,7 +423,7 @@ func captureOutput(f func()) string {
 	os.Stdout = oldStdout
 
 	var buf bytes.Buffer
-	_, _ = buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(reader)
 	return buf.String()
 }
 
