@@ -24,24 +24,12 @@ test:
 	@echo "Running tests..."
 	go test -v ./...
 
-# Run tests with coverage
+# Run tests with coverage (for Codecov integration)
 test-coverage:
 	@echo "Running tests with coverage..."
 	go test -v -coverprofile=coverage.out ./...
-	go tool cover -html=coverage.out -o coverage.html
-	go tool cover -func=coverage.out
-	@echo "Coverage report: coverage.html"
-
-# Run tests with coverage and generate reports
-test-coverage-ci:
-	@echo "Running tests with coverage for CI..."
-	go test -v -coverprofile=coverage.out ./...
-	go tool cover -html=coverage.out -o coverage-report.html
-	go tool cover -func=coverage.out -o coverage-summary.txt
-	@echo "Coverage reports generated:"
-	@echo "  - coverage.out (raw profile)"
-	@echo "  - coverage-report.html (HTML report)" 
-	@echo "  - coverage-summary.txt (function summary)"
+	@echo "Coverage profile generated: coverage.out"
+	@echo "Upload to Codecov for analysis and reporting"
 
 # Run tests with race detection
 test-race:
@@ -53,9 +41,9 @@ test-bench:
 	@echo "Running benchmarks..."
 	go test -bench=. -benchmem ./...
 
-# Generate test coverage badge
-test-coverage-badge:
-	@echo "Generating coverage badge..."
+# Generate detailed coverage analysis (optional, for local development)
+test-coverage-detailed:
+	@echo "Generating detailed coverage analysis..."
 	@which gocov > /dev/null || go install github.com/axw/gocov/gocov@latest
 	@which gocov-html > /dev/null || go install github.com/matm/gocov-html/cmd/gocov-html@latest
 	gocov test ./... | gocov-html > coverage-detailed.html
@@ -65,7 +53,7 @@ test-coverage-badge:
 clean:
 	@echo "Cleaning up..."
 	rm -rf $(BUILD_DIR) build
-	rm -f coverage.out coverage.html coverage-detailed.html
+	rm -f coverage.out coverage-detailed.html
 	rm -f example.portguard.yml demo.portguard.yml
 
 # Install to system (requires sudo on Unix)
@@ -183,10 +171,10 @@ help:
 	@echo ""
 	@echo "Testing Commands:"
 	@echo "  test       - Run tests"
-	@echo "  test-coverage - Run tests with coverage report"
+	@echo "  test-coverage - Run tests with coverage for Codecov upload"
 	@echo "  test-race  - Run tests with race detection"
 	@echo "  test-bench - Run benchmarks"
-	@echo "  test-coverage-badge - Generate detailed coverage report"
+	@echo "  test-coverage-detailed - Generate detailed coverage analysis"
 	@echo "  security   - Run security scan"
 	@echo ""
 	@echo "Demo Commands:"
