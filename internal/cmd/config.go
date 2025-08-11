@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -52,7 +53,7 @@ default:
   cleanup:
     auto_cleanup: true
     max_idle_time: 1h
-    backup_retention: 7d
+    backup_retention: 168h
   
   log_level: info
 
@@ -84,6 +85,13 @@ projects:
       type: command
       target: "curl -f http://localhost:3002/status"
     log_file: "./logs/worker.log"
+  
+  # Example process monitoring (for services without HTTP endpoints)
+  daemon:
+    command: "./background-daemon"
+    health_check:
+      type: process  # Monitor by PID only
+      target: ""     # No target needed for process checks
 `
 
 		// Write configuration file atomically
@@ -158,5 +166,5 @@ func init() {
 
 // Helper function for JSON marshaling with indentation
 func jsonMarshalIndent(v interface{}) ([]byte, error) {
-	return fmt.Appendf(nil, "%+v", v), nil // Simplified for now
+	return json.MarshalIndent(v, "", "  ")
 }

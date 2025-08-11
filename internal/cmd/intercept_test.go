@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	portpkg "github.com/paveg/portguard/internal/port"
 	"github.com/paveg/portguard/internal/process"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -67,20 +68,20 @@ func (m *mockPortScanner) IsPortInUse(port int) bool {
 	return args.Bool(0)
 }
 
-func (m *mockPortScanner) GetPortInfo(port int) (*process.PortInfo, error) {
+func (m *mockPortScanner) GetPortInfo(port int) (*portpkg.PortInfo, error) {
 	args := m.Called(port)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*process.PortInfo), args.Error(1)
+	return args.Get(0).(*portpkg.PortInfo), args.Error(1)
 }
 
-func (m *mockPortScanner) ScanRange(startPort, endPort int) ([]process.PortInfo, error) {
+func (m *mockPortScanner) ScanRange(startPort, endPort int) ([]portpkg.PortInfo, error) {
 	args := m.Called(startPort, endPort)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]process.PortInfo), args.Error(1)
+	return args.Get(0).([]portpkg.PortInfo), args.Error(1)
 }
 
 func (m *mockPortScanner) FindAvailablePort(startPort int) (int, error) {
@@ -150,7 +151,7 @@ func executeInterceptCmd(t *testing.T, input string) (string, error) {
 	}
 
 	// Close write end and wait for output
-	writer.Close()
+	_ = writer.Close() // Close pipe to signal end of input
 	<-done
 
 	return outputBuf.String(), nil
@@ -779,7 +780,7 @@ func TestOutputErrorResponse(t *testing.T) {
 
 		outputErrorResponse(testErr)
 
-		writer.Close()
+		_ = writer.Close() // Close pipe to signal end of input
 		output, _ := io.ReadAll(reader)
 
 		var response PreToolUseResponse

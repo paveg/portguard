@@ -153,8 +153,8 @@ default:
 
 		// Mock home directory
 		originalHome := os.Getenv("HOME")
-		defer os.Setenv("HOME", originalHome)
-		os.Setenv("HOME", tempDir)
+		defer func() { _ = os.Setenv("HOME", originalHome) }() // Best effort cleanup during test
+		_ = os.Setenv("HOME", tempDir)                         // Test setup
 
 		// Reset viper and cfgFile
 		viper.Reset()
@@ -173,8 +173,8 @@ default:
 
 		// Mock home directory with no config file
 		originalHome := os.Getenv("HOME")
-		defer os.Setenv("HOME", originalHome)
-		os.Setenv("HOME", tempDir)
+		defer func() { _ = os.Setenv("HOME", originalHome) }() // Best effort cleanup during test
+		_ = os.Setenv("HOME", tempDir)                         // Test setup
 
 		// Reset viper and cfgFile
 		viper.Reset()
@@ -195,13 +195,13 @@ default:
 		originalEnv := os.Getenv("PORTGUARD_VERBOSE")
 		defer func() {
 			if originalEnv == "" {
-				os.Unsetenv("PORTGUARD_VERBOSE")
+				_ = os.Unsetenv("PORTGUARD_VERBOSE") // Test cleanup
 			} else {
-				os.Setenv("PORTGUARD_VERBOSE", originalEnv)
+				_ = os.Setenv("PORTGUARD_VERBOSE", originalEnv) // Restore environment
 			}
 		}()
 
-		os.Setenv("PORTGUARD_VERBOSE", "true")
+		_ = os.Setenv("PORTGUARD_VERBOSE", "true") // Test setup
 
 		cfgFile = ""
 
@@ -239,7 +239,7 @@ func TestRootCommandPersistentPreRun(t *testing.T) {
 
 	rootCmd.PersistentPreRun(rootCmd, []string{})
 
-	pipeWriter.Close()
+	_ = pipeWriter.Close() // Close pipe to signal end of input
 	os.Stdout = oldStdout
 
 	output := make([]byte, 1024)
@@ -262,7 +262,7 @@ func TestRootCommandPersistentPreRun(t *testing.T) {
 
 	rootCmd.PersistentPreRun(rootCmd, []string{})
 
-	pipeWriter2.Close()
+	_ = pipeWriter2.Close() // Close pipe to signal end of input
 	os.Stdout = oldStdout
 
 	output2 := make([]byte, 1024)

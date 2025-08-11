@@ -3,15 +3,15 @@
 package port
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
+	"os/exec"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/paveg/portguard/internal/process"
 )
 
 // Static error variables to satisfy err113 linter
@@ -23,9 +23,26 @@ var (
 	ErrPortRangeOrder      = errors.New("start port must be less than end port")
 )
 
+// Constants for process identification
+const (
+	UnknownProcessName = "unknown"
+	OSWindows          = "windows"
+	OSDarwin           = "darwin"
+	OSLinux            = "linux"
+)
+
 // Scanner implements PortScanner interface for cross-platform port scanning
 type Scanner struct {
 	timeout time.Duration
+}
+
+// PortInfo represents information about a port
+type PortInfo struct {
+	Port        int    `json:"port"`         // Port number
+	PID         int    `json:"pid"`          // Process ID using this port
+	ProcessName string `json:"process_name"` // Name of the process
+	IsManaged   bool   `json:"is_managed"`   // Whether this port is managed by portguard
+	Protocol    string `json:"protocol"`     // TCP or UDP
 }
 
 // NewScanner creates a new port scanner
@@ -59,8 +76,8 @@ func (s *Scanner) IsPortInUse(port int) bool {
 }
 
 // GetPortInfo retrieves detailed information about a specific port
-func (s *Scanner) GetPortInfo(port int) (*process.PortInfo, error) {
-	portInfo := &process.PortInfo{
+func (s *Scanner) GetPortInfo(port int) (*PortInfo, error) {
+	portInfo := &PortInfo{
 		Port:        port,
 		PID:         -1,
 		ProcessName: "",
@@ -83,7 +100,7 @@ func (s *Scanner) GetPortInfo(port int) (*process.PortInfo, error) {
 }
 
 // ScanRange scans a range of ports and returns information about ports in use
-func (s *Scanner) ScanRange(startPort, endPort int) ([]process.PortInfo, error) {
+func (s *Scanner) ScanRange(startPort, endPort int) ([]PortInfo, error) {
 	// Validate port range
 	if startPort > endPort {
 		return nil, fmt.Errorf("%w: start port must be less than end port", ErrPortRangeOrder)
@@ -92,7 +109,7 @@ func (s *Scanner) ScanRange(startPort, endPort int) ([]process.PortInfo, error) 
 		return nil, fmt.Errorf("%w: invalid port range format", ErrInvalidPortRange)
 	}
 
-	var result []process.PortInfo
+	var result []PortInfo
 
 	for port := startPort; port <= endPort; port++ {
 		if s.IsPortInUse(port) {
@@ -129,9 +146,9 @@ func (s *Scanner) FindAvailablePort(startPort int) (int, error) {
 // This is platform-specific and may not work on all systems
 func (s *Scanner) getProcessInfoForPort(port int) (int, string, error) {
 	switch runtime.GOOS {
-	case "darwin", "linux":
+	case OSDarwin, OSLinux:
 		return s.getProcessInfoUnix(port)
-	case "windows":
+	case OSWindows:
 		return s.getProcessInfoWindows(port)
 	default:
 		return -1, "", fmt.Errorf("%w: %s", ErrUnsupportedPlatform, runtime.GOOS)
@@ -140,31 +157,153 @@ func (s *Scanner) getProcessInfoForPort(port int) (int, string, error) {
 
 // getProcessInfoUnix gets process info on Unix-like systems using lsof-like approach
 func (s *Scanner) getProcessInfoUnix(port int) (int, string, error) {
-	// This is a simplified implementation
-	// In production, you might want to use system calls or parse /proc/net/tcp
+	// Use lsof to get process information for the port
+	ctx, cancel := context.WithTimeout(context.Background(), s.timeout)
+	defer cancel()
 
-	// Try to connect to get basic info
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("localhost:%d", port), s.timeout) //nolint:noctx // TODO: Migrate to (*net.Dialer).DialContext
-	if err != nil {
-		return -1, "", fmt.Errorf("failed to dial port %d: %w", port, err)
+	// Try lsof first (more reliable for process info)
+	cmd := exec.CommandContext(ctx, "lsof", "-ti", fmt.Sprintf(":%d", port))
+	output, err := cmd.Output()
+	if err == nil && len(output) > 0 {
+		// Parse PID from lsof output
+		pidStr := strings.TrimSpace(string(output))
+		if pid, parseErr := strconv.Atoi(strings.Fields(pidStr)[0]); parseErr == nil {
+			// Get process name using ps
+			psCmd := exec.CommandContext(ctx, "ps", "-p", strconv.Itoa(pid), "-o", "comm=")
+			psOutput, psErr := psCmd.Output()
+			if psErr == nil {
+				processName := strings.TrimSpace(string(psOutput))
+				return pid, processName, nil
+			}
+			// If ps fails, return PID without name
+			return pid, UnknownProcessName, nil
+		}
 	}
-	defer func() { _ = conn.Close() }() //nolint:errcheck // Defer close always completes
 
-	// For now, return placeholder values
-	// Real implementation would parse netstat or /proc/net/tcp
-	return -1, "unknown", fmt.Errorf("%w for Unix", ErrProcessInfoNotImpl)
+	// Fallback to netstat if lsof is not available
+	netstatCmd := exec.CommandContext(ctx, "netstat", "-tlnp")
+	netstatOutput, netstatErr := netstatCmd.Output()
+	if netstatErr == nil {
+		return s.parseNetstatOutput(string(netstatOutput), port)
+	}
+
+	// If both methods fail, check if port is actually in use
+	if s.IsPortInUse(port) {
+		return -1, UnknownProcessName, nil // Port in use but can't identify process
+	}
+
+	return -1, "", fmt.Errorf("port %d not in use or process info unavailable", port)
+}
+
+// parseNetstatOutput parses netstat output to extract process information for a specific port
+func (s *Scanner) parseNetstatOutput(output string, targetPort int) (int, string, error) {
+	lines := strings.Split(output, "\n")
+	targetPortStr := fmt.Sprintf(":%d ", targetPort)
+
+	for _, line := range lines {
+		// Look for lines containing our target port
+		if strings.Contains(line, targetPortStr) && strings.Contains(line, "LISTEN") {
+			// Parse netstat line format: tcp 0 0 0.0.0.0:3000 0.0.0.0:* LISTEN 12345/node
+			fields := strings.Fields(line)
+			if len(fields) >= 7 {
+				// Last field typically contains PID/process_name
+				processInfo := fields[len(fields)-1]
+				if strings.Contains(processInfo, "/") {
+					parts := strings.Split(processInfo, "/")
+					if len(parts) >= 2 {
+						if pid, err := strconv.Atoi(parts[0]); err == nil {
+							processName := parts[1]
+							return pid, processName, nil
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return -1, "", fmt.Errorf("process info not found for port %d", targetPort)
 }
 
 // getProcessInfoWindows gets process info on Windows
-func (s *Scanner) getProcessInfoWindows(_ int) (int, string, error) {
-	// Windows-specific implementation would use netstat or WinAPI
-	return -1, "unknown", fmt.Errorf("%w for Windows", ErrProcessInfoNotImpl)
+func (s *Scanner) getProcessInfoWindows(port int) (int, string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), s.timeout)
+	defer cancel()
+
+	// Use netstat to get process information on Windows
+	// -a: show all connections, -n: numerical addresses, -o: show process ID
+	cmd := exec.CommandContext(ctx, "netstat", "-ano")
+	output, err := cmd.Output()
+	if err != nil {
+		return -1, "", fmt.Errorf("failed to run netstat: %w", err)
+	}
+
+	// Parse netstat output for Windows
+	return s.parseNetstatOutputWindows(string(output), port)
+}
+
+// parseNetstatOutputWindows parses Windows netstat output to extract process information
+func (s *Scanner) parseNetstatOutputWindows(output string, targetPort int) (int, string, error) {
+	lines := strings.Split(output, "\n")
+	targetPortStr := fmt.Sprintf(":%d ", targetPort)
+
+	for _, line := range lines {
+		// Windows netstat format: TCP    127.0.0.1:3000    0.0.0.0:0    LISTENING    12345
+		if strings.Contains(line, targetPortStr) && strings.Contains(line, "LISTENING") {
+			fields := strings.Fields(line)
+			if len(fields) >= 5 {
+				// Last field contains PID
+				if pid, err := strconv.Atoi(fields[len(fields)-1]); err == nil {
+					// Try to get process name using tasklist
+					processName := func() string {
+						ctx, cancel := context.WithTimeout(context.Background(), s.timeout)
+						defer cancel()
+
+						tasklistCmd := exec.CommandContext(ctx, "tasklist", "/FI", fmt.Sprintf("PID eq %d", pid), "/FO", "CSV", "/NH")
+						tasklistOutput, tasklistErr := tasklistCmd.Output()
+						if tasklistErr == nil {
+							// Parse CSV output to get process name
+							if name := s.parseTasklistOutput(string(tasklistOutput)); name != "" {
+								return name
+							}
+						}
+						return UnknownProcessName
+					}()
+					return pid, processName, nil
+				}
+			}
+		}
+	}
+
+	return -1, "", fmt.Errorf("process info not found for port %d", targetPort)
+}
+
+// parseTasklistOutput parses Windows tasklist CSV output to get process name
+func (s *Scanner) parseTasklistOutput(output string) string {
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	if len(lines) == 0 {
+		return ""
+	}
+
+	// CSV format: "process_name.exe","12345","Console","1","1,234 K"
+	firstLine := strings.Trim(lines[0], `"`)
+	if firstLine != "" {
+		// Extract just the process name without quotes
+		parts := strings.Split(firstLine, `","`)
+		if len(parts) > 0 {
+			processName := strings.Trim(parts[0], `"`)
+			// Remove .exe extension if present
+			processName = strings.TrimSuffix(processName, ".exe")
+			return processName
+		}
+	}
+
+	return ""
 }
 
 // GetListeningPorts returns all ports currently being listened on
-func (s *Scanner) GetListeningPorts() ([]process.PortInfo, error) {
+func (s *Scanner) GetListeningPorts() ([]PortInfo, error) {
 	// Initialize result slice (never return nil)
-	result := make([]process.PortInfo, 0)
+	result := make([]PortInfo, 0)
 
 	// Scan common development ports
 	commonPorts := []int{3000, 3001, 3002, 3003, 4000, 4001, 5000, 5001, 8000, 8001, 8080, 8081, 9000, 9001}
@@ -267,4 +406,81 @@ func (s *Scanner) ParsePortRange(rangeStr string) (int, int, error) {
 	}
 
 	return start, end, nil
+}
+
+// DiscoverDevelopmentServers scans for and identifies development servers
+func (s *Scanner) DiscoverDevelopmentServers(startPort, endPort int) ([]PortInfo, error) {
+	portsInUse, err := s.ScanRange(startPort, endPort)
+	if err != nil {
+		return nil, fmt.Errorf("failed to scan port range: %w", err)
+	}
+
+	var developmentServers []PortInfo
+
+	// Development server patterns
+	devPatterns := []string{
+		"node", "npm", "yarn", "pnpm", "webpack", "vite", "next",
+		"react-scripts", "vue", "nuxt", "svelte",
+		"python", "flask", "django", "fastapi", "uvicorn",
+		"go", "air", "gin", "echo", "fiber",
+		"ruby", "rails", "sinatra",
+		"php", "artisan", "symfony",
+		"java", "spring", "tomcat", "jetty",
+		"dotnet", "kestrel",
+	}
+
+	for _, portInfo := range portsInUse {
+		if portInfo.PID > 0 && portInfo.ProcessName != "" && portInfo.ProcessName != UnknownProcessName {
+			// Check if process name matches development server patterns
+			processNameLower := strings.ToLower(portInfo.ProcessName)
+			for _, pattern := range devPatterns {
+				if strings.Contains(processNameLower, pattern) {
+					developmentServers = append(developmentServers, portInfo)
+					break
+				}
+			}
+		}
+	}
+
+	return developmentServers, nil
+}
+
+// GetProcessInfoByPID retrieves process information by PID
+func (s *Scanner) GetProcessInfoByPID(pid int) (string, string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), s.timeout)
+	defer cancel()
+
+	switch runtime.GOOS {
+	case OSDarwin, OSLinux:
+		// Use ps to get process info
+		cmd := exec.CommandContext(ctx, "ps", "-p", strconv.Itoa(pid), "-o", "comm=,args=")
+		output, err := cmd.Output()
+		if err != nil {
+			return "", "", fmt.Errorf("failed to get process info for PID %d: %w", pid, err)
+		}
+
+		lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+		if len(lines) > 0 {
+			fields := strings.Fields(lines[0])
+			if len(fields) >= 1 {
+				processName := fields[0]
+				command := strings.Join(fields, " ")
+				return processName, command, nil
+			}
+		}
+
+	case OSWindows:
+		// Use tasklist for Windows
+		cmd := exec.CommandContext(ctx, "tasklist", "/FI", fmt.Sprintf("PID eq %d", pid), "/FO", "CSV", "/NH")
+		output, err := cmd.Output()
+		if err != nil {
+			return "", "", fmt.Errorf("failed to get process info for PID %d: %w", pid, err)
+		}
+
+		if processName := s.parseTasklistOutput(string(output)); processName != "" {
+			return processName, processName, nil
+		}
+	}
+
+	return "", "", fmt.Errorf("could not retrieve process info for PID %d", pid)
 }

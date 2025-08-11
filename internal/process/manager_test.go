@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/paveg/portguard/internal/port"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -58,27 +59,27 @@ type mockPortScanner struct {
 	mock.Mock
 }
 
-func (m *mockPortScanner) IsPortInUse(port int) bool {
-	args := m.Called(port)
+func (m *mockPortScanner) IsPortInUse(portNum int) bool {
+	args := m.Called(portNum)
 	return args.Bool(0)
 }
 
-func (m *mockPortScanner) GetPortInfo(port int) (*PortInfo, error) {
-	args := m.Called(port)
+func (m *mockPortScanner) GetPortInfo(portNum int) (*port.PortInfo, error) {
+	args := m.Called(portNum)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	//nolint:errcheck // Mock args.Get is safe in testify
-	return args.Get(0).(*PortInfo), args.Error(1)
+	return args.Get(0).(*port.PortInfo), args.Error(1)
 }
 
-func (m *mockPortScanner) ScanRange(startPort, endPort int) ([]PortInfo, error) {
+func (m *mockPortScanner) ScanRange(startPort, endPort int) ([]port.PortInfo, error) {
 	args := m.Called(startPort, endPort)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	//nolint:errcheck // Mock args.Get is safe in testify
-	return args.Get(0).([]PortInfo), args.Error(1)
+	return args.Get(0).([]port.PortInfo), args.Error(1)
 }
 
 func (m *mockPortScanner) FindAvailablePort(startPort int) (int, error) {
@@ -106,11 +107,11 @@ func setupTestProcessManager(t *testing.T) (*ProcessManager, *mockStateStore, *m
 }
 
 // Helper function to create test ManagedProcess
-func createTestProcess(id, command string, port int, status ProcessStatus) *ManagedProcess {
+func createTestProcess(id, command string, portNum int, status ProcessStatus) *ManagedProcess {
 	return &ManagedProcess{
 		ID:        id,
 		Command:   command,
-		Port:      port,
+		Port:      portNum,
 		PID:       1000 + len(id), // Dynamic PID based on ID length
 		Status:    status,
 		CreatedAt: time.Now().Add(-time.Hour),
@@ -540,8 +541,8 @@ func TestProcessManager_ConcurrentOperations(t *testing.T) {
 
 			// Start a process
 			command := fmt.Sprintf("test-command-%d", id)
-			port := 3000 + id
-			options := StartOptions{Port: port}
+			portNum := 3000 + id
+			options := StartOptions{Port: portNum}
 
 			process, err := pm.StartProcess(command, []string{}, options)
 			if err == nil {

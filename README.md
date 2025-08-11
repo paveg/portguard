@@ -341,6 +341,7 @@ And many more! Each framework includes intelligent port detection and startup me
 - ✅ HTTP health checks
 - ✅ TCP connectivity checks  
 - ✅ Custom command checks
+- ✅ Process-based health checks (PID monitoring)
 - ✅ Automatic process recovery
 
 ### AI-Friendly Design

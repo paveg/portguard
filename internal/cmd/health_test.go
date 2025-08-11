@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	portpkg "github.com/paveg/portguard/internal/port"
 	"github.com/paveg/portguard/internal/process"
 	"github.com/paveg/portguard/internal/state"
 	"github.com/stretchr/testify/assert"
@@ -16,7 +17,7 @@ func TestHealthCommand_SingleProcess(t *testing.T) {
 	// Create temporary directory for test state
 	tempDir, err := os.MkdirTemp("", "portguard-health-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }() // Best effort cleanup during test
 
 	// Setup process manager
 	pm := createTestProcessManager(t, tempDir)
@@ -101,7 +102,7 @@ func TestHealthCommand_AllProcesses(t *testing.T) {
 			// Create temporary directory for test state
 			tempDir, err := os.MkdirTemp("", "portguard-health-all-test")
 			require.NoError(t, err)
-			defer os.RemoveAll(tempDir)
+			defer func() { _ = os.RemoveAll(tempDir) }() // Best effort cleanup during test
 
 			// Setup mock process manager
 			pm := createTestProcessManager(t, tempDir)
@@ -121,7 +122,7 @@ func TestHealthCommand_Integration(t *testing.T) {
 	// Create temporary directory for test state
 	tempDir, err := os.MkdirTemp("", "portguard-health-integration-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }() // Best effort cleanup during test
 
 	// Test basic functionality without cobra dependency
 	pm := createTestProcessManager(t, tempDir)
@@ -188,7 +189,7 @@ func TestPerformHealthCheck_Coverage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tempDir, err := os.MkdirTemp("", "portguard-health-check-test")
 			require.NoError(t, err)
-			defer os.RemoveAll(tempDir)
+			defer func() { _ = os.RemoveAll(tempDir) }() // Best effort cleanup during test
 
 			pm := createTestProcessManager(t, tempDir)
 
@@ -253,11 +254,11 @@ func (t *testLockManager) IsLocked() bool { return false }
 type testPortScanner struct{}
 
 func (t *testPortScanner) IsPortInUse(port int) bool { return false }
-func (t *testPortScanner) GetPortInfo(port int) (*process.PortInfo, error) {
-	return &process.PortInfo{Port: port, PID: 0, ProcessName: "", IsManaged: false, Protocol: "tcp"}, nil
+func (t *testPortScanner) GetPortInfo(port int) (*portpkg.PortInfo, error) {
+	return &portpkg.PortInfo{Port: port, PID: 0, ProcessName: "", IsManaged: false, Protocol: "tcp"}, nil
 }
-func (t *testPortScanner) ScanRange(startPort, endPort int) ([]process.PortInfo, error) {
-	return []process.PortInfo{}, nil
+func (t *testPortScanner) ScanRange(startPort, endPort int) ([]portpkg.PortInfo, error) {
+	return []portpkg.PortInfo{}, nil
 }
 func (t *testPortScanner) FindAvailablePort(startPort int) (int, error) {
 	return startPort, nil

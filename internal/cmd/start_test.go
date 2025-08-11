@@ -170,8 +170,8 @@ func TestInitializeProcessManager(t *testing.T) {
 	// Create a temporary directory for this test
 	tempDir := t.TempDir()
 	oldHome := os.Getenv("HOME")
-	defer func() { os.Setenv("HOME", oldHome) }()
-	os.Setenv("HOME", tempDir)
+	defer func() { _ = os.Setenv("HOME", oldHome) }() // Restore HOME directory
+	_ = os.Setenv("HOME", tempDir)                    // Set temporary HOME for test
 
 	t.Run("creates_process_manager_successfully", func(t *testing.T) {
 		pm, err := initializeProcessManager()

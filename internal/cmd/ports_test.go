@@ -38,7 +38,7 @@ func TestHandleSinglePortCheck(t *testing.T) {
 			// Create temporary directory for test
 			tempDir, err := os.MkdirTemp("", "portguard-ports-test")
 			require.NoError(t, err)
-			defer os.RemoveAll(tempDir)
+			defer func() { _ = os.RemoveAll(tempDir) }() // Best effort cleanup during test
 
 			// Create scanner
 			scanner := portpkg.NewScanner(5 * time.Second)
@@ -87,7 +87,7 @@ func TestHandlePortRangeScanning(t *testing.T) {
 			// Create temporary directory for test
 			tempDir, err := os.MkdirTemp("", "portguard-range-test")
 			require.NoError(t, err)
-			defer os.RemoveAll(tempDir)
+			defer func() { _ = os.RemoveAll(tempDir) }() // Best effort cleanup during test
 
 			// Create scanner
 			scanner := portpkg.NewScanner(5 * time.Second)
@@ -108,7 +108,7 @@ func TestHandleListeningPorts(t *testing.T) {
 	// Create temporary directory for test
 	tempDir, err := os.MkdirTemp("", "portguard-listening-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }() // Best effort cleanup during test
 
 	// Create scanner
 	scanner := portpkg.NewScanner(5 * time.Second)
@@ -123,7 +123,7 @@ func TestPortCommandIntegration(t *testing.T) {
 		// Create temporary directory for test
 		tempDir, err := os.MkdirTemp("", "portguard-integration-test")
 		require.NoError(t, err)
-		defer os.RemoveAll(tempDir)
+		defer func() { _ = os.RemoveAll(tempDir) }() // Best effort cleanup during test
 
 		// Create scanner
 		scanner := portpkg.NewScanner(5 * time.Second)
@@ -141,7 +141,7 @@ func TestPortCommandIntegration(t *testing.T) {
 		// Create temporary directory for test
 		tempDir, err := os.MkdirTemp("", "portguard-range-json-test")
 		require.NoError(t, err)
-		defer os.RemoveAll(tempDir)
+		defer func() { _ = os.RemoveAll(tempDir) }() // Best effort cleanup during test
 
 		// Create scanner
 		scanner := portpkg.NewScanner(5 * time.Second)
@@ -159,7 +159,7 @@ func TestPortCommandIntegration(t *testing.T) {
 		// Create temporary directory for test
 		tempDir, err := os.MkdirTemp("", "portguard-listening-json-test")
 		require.NoError(t, err)
-		defer os.RemoveAll(tempDir)
+		defer func() { _ = os.RemoveAll(tempDir) }() // Best effort cleanup during test
 
 		// Create scanner
 		scanner := portpkg.NewScanner(5 * time.Second)
@@ -179,7 +179,7 @@ func TestPortCheckErrorScenarios(t *testing.T) {
 		// Create temporary directory for test
 		tempDir, err := os.MkdirTemp("", "portguard-error-test")
 		require.NoError(t, err)
-		defer os.RemoveAll(tempDir)
+		defer func() { _ = os.RemoveAll(tempDir) }() // Best effort cleanup during test
 
 		// Create scanner
 		scanner := portpkg.NewScanner(5 * time.Second)
@@ -194,7 +194,7 @@ func TestPortCheckErrorScenarios(t *testing.T) {
 		// Create temporary directory for test
 		tempDir, err := os.MkdirTemp("", "portguard-large-range-test")
 		require.NoError(t, err)
-		defer os.RemoveAll(tempDir)
+		defer func() { _ = os.RemoveAll(tempDir) }() // Best effort cleanup during test
 
 		// Create scanner
 		scanner := portpkg.NewScanner(5 * time.Second)

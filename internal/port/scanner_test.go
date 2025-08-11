@@ -11,8 +11,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/paveg/portguard/internal/process"
 )
 
 const (
@@ -158,7 +156,7 @@ func TestScanner_GetPortInfo(t *testing.T) {
 	tests := []struct {
 		name        string
 		setupServer func(t *testing.T) (int, func())
-		validate    func(t *testing.T, portInfo *process.PortInfo, err error)
+		validate    func(t *testing.T, portInfo *PortInfo, err error)
 	}{
 		{
 			name: "available_port_info",
@@ -167,7 +165,7 @@ func TestScanner_GetPortInfo(t *testing.T) {
 				port := findTestPort(t)
 				return port, func() {}
 			},
-			validate: func(t *testing.T, portInfo *process.PortInfo, err error) {
+			validate: func(t *testing.T, portInfo *PortInfo, err error) {
 				t.Helper()
 				require.NoError(t, err)
 				require.NotNil(t, portInfo)
@@ -185,7 +183,7 @@ func TestScanner_GetPortInfo(t *testing.T) {
 				_, cleanup := createTestServer(t, port)
 				return port, cleanup
 			},
-			validate: func(t *testing.T, portInfo *process.PortInfo, err error) {
+			validate: func(t *testing.T, portInfo *PortInfo, err error) {
 				t.Helper()
 				require.NoError(t, err)
 				require.NotNil(t, portInfo)
@@ -280,14 +278,14 @@ func TestScanner_ScanRange(t *testing.T) {
 		startPort int
 		endPort   int
 		setup     func(t *testing.T, startPort, endPort int) func()
-		validate  func(t *testing.T, portInfos []process.PortInfo, err error)
+		validate  func(t *testing.T, portInfos []PortInfo, err error)
 	}{
 		{
 			name:      "scan_empty_range",
 			startPort: testPortStart + 200,
 			endPort:   testPortStart + 210,
 			setup:     func(t *testing.T, startPort, endPort int) func() { t.Helper(); return func() {} },
-			validate: func(t *testing.T, portInfos []process.PortInfo, err error) {
+			validate: func(t *testing.T, portInfos []PortInfo, err error) {
 				t.Helper()
 				require.NoError(t, err)
 				// FIXED: portInfos can be nil or empty slice when no ports in use
@@ -313,7 +311,7 @@ func TestScanner_ScanRange(t *testing.T) {
 					cleanup2()
 				}
 			},
-			validate: func(t *testing.T, portInfos []process.PortInfo, err error) {
+			validate: func(t *testing.T, portInfos []PortInfo, err error) {
 				t.Helper()
 				require.NoError(t, err)
 
@@ -338,7 +336,7 @@ func TestScanner_ScanRange(t *testing.T) {
 			startPort: testPortStart + 400,
 			endPort:   testPortStart + 350, // End before start
 			setup:     func(t *testing.T, startPort, endPort int) func() { t.Helper(); return func() {} },
-			validate: func(t *testing.T, portInfos []process.PortInfo, err error) {
+			validate: func(t *testing.T, portInfos []PortInfo, err error) {
 				t.Helper()
 				require.Error(t, err)
 				assert.Nil(t, portInfos)
@@ -350,7 +348,7 @@ func TestScanner_ScanRange(t *testing.T) {
 			startPort: -1,
 			endPort:   testPortStart + 400,
 			setup:     func(t *testing.T, startPort, endPort int) func() { t.Helper(); return func() {} },
-			validate: func(t *testing.T, portInfos []process.PortInfo, err error) {
+			validate: func(t *testing.T, portInfos []PortInfo, err error) {
 				t.Helper()
 				require.Error(t, err)
 				assert.Nil(t, portInfos)
@@ -734,4 +732,199 @@ func TestScanner_CrossPlatformCompatibility(t *testing.T) {
 
 		_ = listener // Use listener to avoid unused variable
 	})
+}
+
+func TestScanner_ParseNetstatOutput(t *testing.T) {
+	scanner := NewScanner(defaultTimeout)
+
+	tests := []struct {
+		name         string
+		output       string
+		targetPort   int
+		expectedPID  int
+		expectedName string
+		expectError  bool
+	}{
+		{
+			name: "linux_netstat_format",
+			output: `Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State       PID/Program name
+tcp        0      0 0.0.0.0:3000            0.0.0.0:*               LISTEN      12345/node
+tcp6       0      0 :::22                   :::*                    LISTEN      1234/sshd
+udp        0      0 0.0.0.0:53              0.0.0.0:*                           567/systemd-resolve`,
+			targetPort:   3000,
+			expectedPID:  12345,
+			expectedName: "node",
+			expectError:  false,
+		},
+		{
+			name: "port_not_found",
+			output: `Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State       PID/Program name
+tcp        0      0 0.0.0.0:8080            0.0.0.0:*               LISTEN      54321/nginx`,
+			targetPort:   3000,
+			expectedPID:  -1,
+			expectedName: "",
+			expectError:  true,
+		},
+		{
+			name: "multiple_ports_match_target",
+			output: `Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State       PID/Program name
+tcp        0      0 127.0.0.1:3000          0.0.0.0:*               LISTEN      11111/app1
+tcp        0      0 0.0.0.0:3000            0.0.0.0:*               LISTEN      22222/app2`,
+			targetPort:   3000,
+			expectedPID:  11111, // Should return first match
+			expectedName: "app1",
+			expectError:  false,
+		},
+		{
+			name:         "empty_output",
+			output:       "",
+			targetPort:   3000,
+			expectedPID:  -1,
+			expectedName: "",
+			expectError:  true,
+		},
+		{
+			name: "malformed_pid_process",
+			output: `Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State       PID/Program name
+tcp        0      0 0.0.0.0:3000            0.0.0.0:*               LISTEN      invalid_format`,
+			targetPort:   3000,
+			expectedPID:  -1,
+			expectedName: "",
+			expectError:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pid, processName, err := scanner.parseNetstatOutput(tt.output, tt.targetPort)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Equal(t, tt.expectedPID, pid)
+				assert.Equal(t, tt.expectedName, processName)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedPID, pid)
+				assert.Equal(t, tt.expectedName, processName)
+			}
+		})
+	}
+}
+
+func TestScanner_GetProcessInfoWindows(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows-specific test")
+	}
+
+	scanner := NewScanner(defaultTimeout)
+
+	t.Run("windows_process_info_retrieval", func(t *testing.T) {
+		// Create a test server to have a known port in use
+		port := findTestPort(t)
+		_, cleanup := createTestServer(t, port)
+		defer cleanup()
+
+		// Test getProcessInfoWindows directly
+		pid, processName, err := scanner.getProcessInfoWindows(port)
+
+		// On Windows, this might succeed or fail depending on permissions
+		// Just verify it doesn't panic and returns consistent results
+		if err == nil {
+			assert.Greater(t, pid, 0, "PID should be positive when no error")
+			assert.NotEmpty(t, processName, "Process name should not be empty when no error")
+		} else {
+			assert.Equal(t, -1, pid, "PID should be -1 when error occurs")
+			assert.Empty(t, processName, "Process name should be empty when error occurs")
+		}
+	})
+
+	t.Run("windows_unused_port", func(t *testing.T) {
+		// Test with a port that's unlikely to be in use
+		unusedPort := 65534
+
+		pid, processName, err := scanner.getProcessInfoWindows(unusedPort)
+		assert.Error(t, err)
+		assert.Equal(t, -1, pid)
+		assert.Empty(t, processName)
+		assert.Contains(t, err.Error(), "process info not found")
+	})
+}
+
+func TestScanner_ParseNetstatOutputWindows(t *testing.T) {
+	scanner := NewScanner(defaultTimeout)
+
+	tests := []struct {
+		name         string
+		output       string
+		targetPort   int
+		expectedPID  int
+		expectedName string
+		expectError  bool
+	}{
+		{
+			name: "windows_netstat_format",
+			output: `Active Connections
+
+  Proto  Local Address          Foreign Address        State           PID
+  TCP    0.0.0.0:80             0.0.0.0:0              LISTENING       4
+  TCP    0.0.0.0:135            0.0.0.0:0              LISTENING       832
+  TCP    0.0.0.0:3000           0.0.0.0:0              LISTENING       12345
+  TCP    127.0.0.1:5000         0.0.0.0:0              LISTENING       54321`,
+			targetPort:   3000,
+			expectedPID:  12345,
+			expectedName: "unknown", // Windows version returns "unknown" for process name
+			expectError:  false,
+		},
+		{
+			name: "windows_port_not_found",
+			output: `Active Connections
+
+  Proto  Local Address          Foreign Address        State           PID
+  TCP    0.0.0.0:80             0.0.0.0:0              LISTENING       4
+  TCP    0.0.0.0:135            0.0.0.0:0              LISTENING       832`,
+			targetPort:   3000,
+			expectedPID:  -1,
+			expectedName: "",
+			expectError:  true,
+		},
+		{
+			name: "windows_malformed_pid",
+			output: `Active Connections
+
+  Proto  Local Address          Foreign Address        State           PID
+  TCP    0.0.0.0:3000           0.0.0.0:0              LISTENING       invalid`,
+			targetPort:   3000,
+			expectedPID:  -1,
+			expectedName: "",
+			expectError:  true,
+		},
+		{
+			name:         "windows_empty_output",
+			output:       "",
+			targetPort:   3000,
+			expectedPID:  -1,
+			expectedName: "",
+			expectError:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pid, processName, err := scanner.parseNetstatOutputWindows(tt.output, tt.targetPort)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Equal(t, tt.expectedPID, pid)
+				assert.Equal(t, tt.expectedName, processName)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedPID, pid)
+				assert.Equal(t, tt.expectedName, processName)
+			}
+		})
+	}
 }

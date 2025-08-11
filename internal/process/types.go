@@ -26,6 +26,7 @@ const (
 	HealthCheckHTTP    HealthCheckType = "http"    // HTTP endpoint health check
 	HealthCheckTCP     HealthCheckType = "tcp"     // TCP connection health check
 	HealthCheckCommand HealthCheckType = "command" // Custom command health check
+	HealthCheckProcess HealthCheckType = "process" // Process health check (PID-based)
 	HealthCheckNone    HealthCheckType = "none"    // No health check
 )
 
@@ -41,6 +42,7 @@ type HealthCheck struct {
 
 // ManagedProcess represents a process managed by portguard
 type ManagedProcess struct {
+	Config      *ProcessConfig    `json:"config"`       // Process configuration
 	ID          string            `json:"id"`           // Unique identifier
 	Command     string            `json:"command"`      // Command that was executed
 	Args        []string          `json:"args"`         // Command arguments
@@ -49,11 +51,13 @@ type ManagedProcess struct {
 	Status      ProcessStatus     `json:"status"`       // Current status
 	HealthCheck *HealthCheck      `json:"health_check"` // Health check configuration
 	CreatedAt   time.Time         `json:"created_at"`   // When the process was started
+	StartedAt   time.Time         `json:"started_at"`   // When the process actually started (for compatibility)
 	UpdatedAt   time.Time         `json:"updated_at"`   // Last status update
 	LastSeen    time.Time         `json:"last_seen"`    // Last time process was confirmed running
 	Environment map[string]string `json:"environment"`  // Environment variables
 	WorkingDir  string            `json:"working_dir"`  // Working directory
 	LogFile     string            `json:"log_file"`     // Path to log file
+	IsExternal  bool              `json:"is_external"`  // Whether this is an externally started process
 }
 
 // IsHealthy checks if the process is considered healthy
@@ -76,13 +80,22 @@ func (p *ManagedProcess) TimeSinceLastSeen() time.Duration {
 	return time.Since(p.LastSeen)
 }
 
-// PortInfo represents information about a port
-type PortInfo struct {
-	Port        int    `json:"port"`         // Port number
-	PID         int    `json:"pid"`          // Process ID using this port
-	ProcessName string `json:"process_name"` // Name of the process
-	IsManaged   bool   `json:"is_managed"`   // Whether this port is managed by portguard
-	Protocol    string `json:"protocol"`     // TCP or UDP
+// PortRange represents a range of ports for scanning
+type PortRange struct {
+	Start int `json:"start"` // Starting port number
+	End   int `json:"end"`   // Ending port number
+}
+
+// ProcessConfig represents configuration for a process
+type ProcessConfig struct {
+	ID          string            `json:"id"`           // Unique identifier
+	Command     string            `json:"command"`      // Command to execute
+	Args        []string          `json:"args"`         // Command arguments
+	Port        int               `json:"port"`         // Primary port
+	WorkingDir  string            `json:"working_dir"`  // Working directory
+	Environment map[string]string `json:"environment"`  // Environment variables
+	LogFile     string            `json:"log_file"`     // Log file path
+	HealthCheck *HealthCheck      `json:"health_check"` // Health check configuration
 }
 
 // ProcessListOptions defines options for listing processes

@@ -15,6 +15,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/paveg/portguard/internal/port"
 )
 
 // Static error variables to satisfy err113 linter
@@ -49,8 +51,8 @@ type LockManager interface {
 // PortScanner interface for scanning port usage
 type PortScanner interface {
 	IsPortInUse(port int) bool
-	GetPortInfo(port int) (*PortInfo, error)
-	ScanRange(startPort, endPort int) ([]PortInfo, error)
+	GetPortInfo(port int) (*port.PortInfo, error)
+	ScanRange(startPort, endPort int) ([]port.PortInfo, error)
 	FindAvailablePort(startPort int) (int, error)
 }
 
@@ -78,7 +80,7 @@ func (pm *ProcessManager) generateID(command string) string {
 }
 
 // ShouldStartNew determines if a new process should be started or an existing one reused
-func (pm *ProcessManager) ShouldStartNew(command string, port int) (bool, *ManagedProcess) {
+func (pm *ProcessManager) ShouldStartNew(command string, portNum int) (bool, *ManagedProcess) {
 	pm.mutex.RLock()
 	defer pm.mutex.RUnlock()
 
@@ -91,11 +93,11 @@ func (pm *ProcessManager) ShouldStartNew(command string, port int) (bool, *Manag
 
 	// 2. Check port availability if specified
 	//nolint:nestif // Complex port conflict logic is necessary for correctness
-	if port > 0 {
-		if pm.portScanner.IsPortInUse(port) {
+	if portNum > 0 {
+		if pm.portScanner.IsPortInUse(portNum) {
 			// Check if the port is occupied by one of our managed processes
 			for _, process := range pm.processes {
-				if process.Port == port && process.IsRunning() {
+				if process.Port == portNum && process.IsRunning() {
 					// Only return the process if it's the same command
 					if process.Command == command {
 						return false, process // Same command, reuse process
@@ -117,7 +119,7 @@ func (pm *ProcessManager) StartProcess(command string, args []string, options St
 	if err := pm.lockManager.Lock(); err != nil {
 		return nil, fmt.Errorf("failed to acquire lock: %w", err)
 	}
-	defer func() { _ = pm.lockManager.Unlock() }() //nolint:errcheck // Defer unlock completes regardless
+	defer func() { _ = pm.lockManager.Unlock() }() //nolint:errcheck // Defer unlock completes regardless //nolint:errcheck // Defer unlock completes regardless
 
 	// Check if we should start a new process
 	shouldStart, existing := pm.ShouldStartNew(command, options.Port)
@@ -158,12 +160,64 @@ func (pm *ProcessManager) StartProcess(command string, args []string, options St
 	return actualProcess, nil
 }
 
+// AdoptProcess adopts an existing external process into management
+func (pm *ProcessManager) AdoptProcess(managedProcess *ManagedProcess) error {
+	if err := pm.lockManager.Lock(); err != nil {
+		return fmt.Errorf("failed to acquire lock: %w", err)
+	}
+	defer func() { _ = pm.lockManager.Unlock() }() //nolint:errcheck // Defer unlock completes regardless
+
+	// Validate the process
+	if managedProcess == nil {
+		return errors.New("cannot adopt nil process")
+	}
+
+	if managedProcess.PID <= 0 {
+		return fmt.Errorf("invalid PID: %d", managedProcess.PID)
+	}
+
+	// Generate ID if not set
+	if managedProcess.ID == "" {
+		managedProcess.ID = pm.generateID(managedProcess.Command)
+	}
+
+	// Set adoption timestamp
+	managedProcess.CreatedAt = time.Now()
+	managedProcess.StartedAt = time.Now()
+	managedProcess.UpdatedAt = time.Now()
+	managedProcess.LastSeen = time.Now()
+
+	// Store the process
+	pm.mutex.Lock()
+	pm.processes[managedProcess.ID] = managedProcess
+	// Create a copy of the processes map for safe concurrent access to stateStore
+	processesCopy := make(map[string]*ManagedProcess)
+	for k, v := range pm.processes {
+		processesCopy[k] = v
+	}
+	pm.mutex.Unlock()
+
+	// Persist to storage
+	if err := pm.stateStore.Save(processesCopy); err != nil {
+		// Remove from memory if save failed
+		pm.mutex.Lock()
+		delete(pm.processes, managedProcess.ID)
+		pm.mutex.Unlock()
+		return fmt.Errorf("failed to save state: %w", err)
+	}
+
+	// Start background monitoring for the adopted process
+	go pm.monitorProcessInBackground(managedProcess)
+
+	return nil
+}
+
 // StopProcess stops a managed process
 func (pm *ProcessManager) StopProcess(id string, forceKill bool) error {
 	if err := pm.lockManager.Lock(); err != nil {
 		return fmt.Errorf("failed to acquire lock: %w", err)
 	}
-	defer func() { _ = pm.lockManager.Unlock() }() //nolint:errcheck // Defer unlock completes regardless
+	defer func() { _ = pm.lockManager.Unlock() }() //nolint:errcheck // Defer unlock completes regardless //nolint:errcheck // Defer unlock completes regardless
 
 	pm.mutex.Lock()
 	process, exists := pm.processes[id]
@@ -229,7 +283,7 @@ func (pm *ProcessManager) CleanupProcesses(force bool) error {
 	if err := pm.lockManager.Lock(); err != nil {
 		return fmt.Errorf("failed to acquire lock: %w", err)
 	}
-	defer func() { _ = pm.lockManager.Unlock() }() //nolint:errcheck // Defer unlock completes regardless
+	defer func() { _ = pm.lockManager.Unlock() }() //nolint:errcheck // Defer unlock completes regardless //nolint:errcheck // Defer unlock completes regardless
 
 	pm.mutex.Lock()
 	defer pm.mutex.Unlock()
@@ -656,6 +710,16 @@ func (pm *ProcessManager) runHealthCheck(ctx context.Context, process *ManagedPr
 		return pm.performTCPHealthCheck(healthCtx, process)
 	case HealthCheckCommand:
 		return pm.performCommandHealthCheck(healthCtx, process)
+	case HealthCheckProcess:
+		// Process health check using PID
+		if process.PID > 0 {
+			if osProcess, err := os.FindProcess(process.PID); err == nil {
+				if isProcessAlive(osProcess) {
+					return nil // Process is running, consider it healthy
+				}
+			}
+		}
+		return fmt.Errorf("process %s failed process health check", process.ID)
 	case HealthCheckNone:
 		return nil // No health check
 	default:

@@ -41,6 +41,8 @@ ignore:
   - "scripts/"
   - "build/"
   - "*.md"
+  - "*.yml"
+  - "*.yaml"
 
 flags:
   unittests:

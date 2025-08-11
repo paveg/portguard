@@ -159,11 +159,12 @@ func handlePreToolUse(request *InterceptRequest) {
 		return
 	}
 
-	// Check for conflicts
+	// Extract port and create process manager
 	//nolint:govet // TODO: Rename variable to avoid shadowing (e.g., detectedPort)
 	port := extractPort(command)
 	pm := ProcessManagerFactory()
 
+	// Check for conflicts with managed processes
 	if existing := checkForConflict(pm, command, port); existing != nil {
 		response.Proceed = false
 		response.Message = fmt.Sprintf("Port %d already in use by: %s", existing.Port, existing.Command)
@@ -179,8 +180,34 @@ func handlePreToolUse(request *InterceptRequest) {
 			"Check 'portguard list' for all processes",
 		}
 	} else {
-		response.Message = "Server command allowed, no conflicts"
-		response.Data["detected_port"] = port
+		// Check for existing unmanaged processes that could be imported
+		if port > 0 {
+			if adoptableInfo := checkForAdoptableProcess(port); adoptableInfo != nil {
+				response.Data["adoptable_process"] = map[string]interface{}{
+					"pid":          adoptableInfo.PID,
+					"process_name": adoptableInfo.ProcessName,
+					"command":      adoptableInfo.Command,
+					"port":         adoptableInfo.Port,
+					"suitable":     adoptableInfo.IsSuitable,
+					"reason":       adoptableInfo.Reason,
+				}
+
+				if adoptableInfo.IsSuitable {
+					response.Message = fmt.Sprintf("Found existing process on port %d that could be imported", port)
+					response.Data["suggestions"] = []string{
+						fmt.Sprintf("Use 'portguard import port %d' to import the existing process", port),
+						"Or proceed to start a new process (may cause conflicts)",
+					}
+				} else {
+					response.Message = fmt.Sprintf("Found process on port %d, but not suitable for import: %s", port, adoptableInfo.Reason)
+				}
+			} else {
+				response.Message = "Server command allowed, no conflicts detected"
+				response.Data["detected_port"] = port
+			}
+		} else {
+			response.Message = "Server command allowed, no port detected"
+		}
 	}
 
 	outputJSON(response)
@@ -502,7 +529,7 @@ func extractPortFromOutput(output string) int {
 		if matches := re.FindStringSubmatch(output); len(matches) > 1 {
 			//nolint:govet // TODO: Rename variable to avoid shadowing (e.g., parsedPort)
 			var port int
-			fmt.Sscanf(matches[1], "%d", &port)
+			_, _ = fmt.Sscanf(matches[1], "%d", &port)
 			if port > 0 {
 				return port
 			}
@@ -533,6 +560,34 @@ func checkForConflict(pm *process.ProcessManager, command string, port int) *pro
 		}
 	}
 	return nil
+}
+
+// checkForAdoptableProcess checks if there's an existing process on the given port that could be adopted
+func checkForAdoptableProcess(port int) *process.AdoptionInfo {
+	// Create a process adopter to check for adoptable processes
+	adopter := process.NewProcessAdopter(5 * time.Second)
+
+	// Get the PID of the process using this port
+	pid := getProcessByPort(port)
+	if pid <= 0 {
+		return nil // No process found on this port
+	}
+
+	// Try to get process info for the PID
+	if adoptionInfo, err := adopter.GetProcessInfo(pid); err == nil {
+		return adoptionInfo
+	}
+
+	return nil
+}
+
+// getProcessByPort gets the PID of the process using the specified port
+func getProcessByPort(port int) int {
+	scanner := portscanner.NewScanner(2 * time.Second)
+	if portInfo, err := scanner.GetPortInfo(port); err == nil && portInfo.PID > 0 {
+		return portInfo.PID
+	}
+	return 0
 }
 
 func outputJSON(v interface{}) {

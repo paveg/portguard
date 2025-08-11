@@ -20,7 +20,7 @@ func captureStdout(f func()) string {
 
 	f()
 
-	writer.Close()
+	_ = writer.Close() // Best effort cleanup during test
 	os.Stdout = oldStdout
 
 	var buf bytes.Buffer
