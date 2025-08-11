@@ -85,6 +85,13 @@ projects:
       type: command
       target: "curl -f http://localhost:3002/status"
     log_file: "./logs/worker.log"
+  
+  # Example process monitoring (for services without HTTP endpoints)
+  daemon:
+    command: "./background-daemon"
+    health_check:
+      type: process  # Monitor by PID only
+      target: ""     # No target needed for process checks
 `
 
 		// Write configuration file atomically
