@@ -385,17 +385,14 @@ ci: CI/CD changes
 
 ##### Step 1: Pre-release Preparation
 
-1. **Update version in ALL required files**:
+1. **Version is now managed automatically from Git tags**:
    ```bash
-   # Update version constant in source code
-   vim internal/cmd/root.go  # Update: var Version = "X.Y.Z"
+   # No manual version file updates needed!
+   # Version is automatically derived from git tags via Makefile
    
-   # Update version in Makefile
-   vim Makefile  # Update: VERSION?=X.Y.Z
-   
-   # Verify versions match
-   grep "Version.*=" internal/cmd/root.go
-   grep "VERSION?=" Makefile
+   # Verify current version detection
+   make build
+   ./bin/portguard --version  # Shows current git tag
    ```
 
 2. **Update CHANGELOG.md**:
@@ -415,8 +412,8 @@ ci: CI/CD changes
 ##### Step 2: Commit and Tag (DO THIS CORRECTLY!)
 
 ```bash
-# 1. Commit all version updates together
-git add internal/cmd/root.go Makefile CHANGELOG.md
+# 1. Commit only CHANGELOG.md (no version files needed!)
+git add CHANGELOG.md
 git commit -m "release: prepare vX.Y.Z"
 
 # 2. Create PR to main branch (required due to branch protection)
@@ -447,14 +444,11 @@ $(go env GOPATH)/bin/portguard --version  # Should show vX.Y.Z
 #### Common Mistakes to Avoid
 
 ❌ **NEVER do these**:
-- Don't update version in only one file (must update both root.go AND Makefile)
 - Don't delete and recreate tags (causes checksum mismatches)
-- Don't push tags before version files are updated
-- Don't create release from unmerged branches
+- Don't create release from unmerged branches  
 - Don't skip the PR process for main branch
 
 ✅ **ALWAYS do these**:
-- Update ALL version references before tagging
 - Create tags only once (never delete/recreate)
 - Test the build locally before releasing
 - Use PRs for main branch updates
@@ -467,8 +461,7 @@ If a release is broken (wrong version displayed, checksum errors, etc.):
 1. **Create a NEW version** (never reuse version numbers):
    ```bash
    # If vX.Y.Z is broken, create vX.Y.(Z+1)
-   # Update all version files to new version
-   # Follow proper release process from Step 1
+   # No version files to update - just follow proper release process from Step 1
    ```
 
 2. **Document the issue**:

@@ -8,8 +8,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Version will be set during build time
-var Version = "0.2.5"
+// Version will be set during build time via ldflags
+var Version = "dev"
 
 var (
 	rootCmd = &cobra.Command{

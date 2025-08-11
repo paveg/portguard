@@ -6,7 +6,7 @@
 # Variables
 BINARY_NAME=portguard
 BUILD_DIR=bin
-VERSION?=0.2.5
+VERSION?=$(shell git describe --tags --exact-match 2>/dev/null || git describe --tags --abbrev=0 2>/dev/null || echo "dev")
 LDFLAGS=-ldflags "-X github.com/paveg/portguard/internal/cmd.Version=$(VERSION)"
 
 # Default target
