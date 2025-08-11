@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4] - 2025-08-11
+
 ### Added
 
 - **Project-Based Command Recognition**: Support for starting processes using project names from configuration
@@ -315,6 +317,7 @@ Automatically detects and manages:
 - `node server.js`, `nodemon`, `vite`
 - And many more development server patterns
 
+[0.2.4]: https://github.com/paveg/portguard/releases/tag/v0.2.4
 [0.2.3]: https://github.com/paveg/portguard/releases/tag/v0.2.3
 [0.2.1]: https://github.com/paveg/portguard/releases/tag/v0.2.1
 [0.2.0]: https://github.com/paveg/portguard/releases/tag/v0.2.0
