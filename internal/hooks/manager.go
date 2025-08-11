@@ -406,9 +406,57 @@ func (s *StatusChecker) Check() (*StatusResult, error) {
 		}
 	}
 
-	// TODO: Check actual installation status
+	// FIXED: Check actual installation status
+	configPaths := s.getClaudeConfigPaths()
+	for _, configPath := range configPaths {
+		pgConfigPath := filepath.Join(configPath, ".portguard-hooks.json")
+		if _, err := os.Stat(pgConfigPath); err == nil {
+			// Found portguard hooks configuration file
+			result.Installed = true
+			result.ConfigPath = configPath
+			
+			// Try to read the configuration to get more details
+			if pgConfig, err := s.readPortguardConfig(pgConfigPath); err == nil {
+				result.Template = pgConfig.Template
+				result.Version = pgConfig.Version
+			}
+			break
+		}
+	}
+
+	if !result.Installed {
+		result.Messages = append(result.Messages, "No portguard hooks configuration found")
+	}
 
 	return result, nil
+}
+
+// getClaudeConfigPaths returns possible Claude Code configuration paths
+func (s *StatusChecker) getClaudeConfigPaths() []string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return []string{}
+	}
+
+	return []string{
+		filepath.Join(homeDir, ".config", "claude-code"),
+		filepath.Join(homeDir, ".claude"),
+	}
+}
+
+// readPortguardConfig reads and parses the portguard hooks configuration
+func (s *StatusChecker) readPortguardConfig(configPath string) (*PortguardConfig, error) {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	var pgConfig PortguardConfig
+	if err := json.Unmarshal(data, &pgConfig); err != nil {
+		return nil, fmt.Errorf("failed to parse config: %w", err)
+	}
+
+	return &pgConfig, nil
 }
 
 // isCommandAvailable checks if a command is available

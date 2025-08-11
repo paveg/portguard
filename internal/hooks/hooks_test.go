@@ -175,16 +175,52 @@ func TestNewStatusChecker(t *testing.T) {
 }
 
 func TestStatusCheckerCheck(t *testing.T) {
-	checker := NewStatusChecker()
-
-	t.Run("check_status", func(t *testing.T) {
+	t.Run("check_status_returns_valid_structure", func(t *testing.T) {
+		checker := &StatusChecker{}
+		
 		result, err := checker.Check()
 		require.NoError(t, err)
 		assert.NotNil(t, result)
 
-		// Should have basic status information
-		assert.False(t, result.Installed) // Default should be false in test
+		// Should have basic status information regardless of installation state
 		assert.NotNil(t, result.Messages)
+		assert.False(t, result.LastChecked.IsZero())
+		
+		// If installed, should have additional details
+		if result.Installed {
+			// When installed, config path should be set
+			assert.NotEmpty(t, result.ConfigPath)
+		} else {
+			// When not installed, should have explanatory message
+			assert.Contains(t, result.Messages, "No portguard hooks configuration found")
+		}
+	})
+
+	t.Run("check_status_with_mock_installation", func(t *testing.T) {
+		// Create a temporary directory to simulate Claude config
+		tempDir := t.TempDir()
+		claudeConfigDir := filepath.Join(tempDir, ".config", "claude-code")
+		require.NoError(t, os.MkdirAll(claudeConfigDir, 0o755))
+
+		// Create a mock portguard hooks config
+		mockConfig := PortguardConfig{
+			Version:   "1.0.0",
+			Template:  "basic",
+			Installed: time.Now(),
+			Hooks:     make(map[string]HookConfig),
+		}
+		configData, err := json.MarshalIndent(mockConfig, "", "  ")
+		require.NoError(t, err)
+
+		configPath := filepath.Join(claudeConfigDir, ".portguard-hooks.json")
+		require.NoError(t, os.WriteFile(configPath, configData, 0o644))
+
+		// Test that we can read the configuration correctly
+		checker := &StatusChecker{}
+		pgConfig, err := checker.readPortguardConfig(configPath)
+		require.NoError(t, err)
+		assert.Equal(t, "1.0.0", pgConfig.Version)
+		assert.Equal(t, "basic", pgConfig.Template)
 	})
 }
 
