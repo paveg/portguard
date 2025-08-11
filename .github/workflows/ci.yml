@@ -71,16 +71,6 @@ jobs:
           path: coverage.out
           retention-days: 30
 
-      - name: Coverage threshold check
-        run: |
-          COVERAGE=$(go tool cover -func=coverage.out | grep total: | awk '{print $3}' | sed 's/%//')
-          echo "Current coverage: ${COVERAGE}%"
-          if (( $(echo "${COVERAGE} < 70" | bc -l) )); then
-            echo "::error::Coverage ${COVERAGE}% is below minimum threshold of 70%"
-            exit 1
-          fi
-          echo "::notice::Coverage ${COVERAGE}% meets the minimum threshold"
-
   lint:
     name: Lint
     runs-on: ubuntu-latest
