@@ -78,16 +78,16 @@ func (pa *ProcessAdopter) AdoptProcessByPID(pid int) (*ManagedProcess, error) {
 }
 
 // AdoptProcessByPort adopts a process running on a specific port
-func (pa *ProcessAdopter) AdoptProcessByPort(port int) (*ManagedProcess, error) {
+func (pa *ProcessAdopter) AdoptProcessByPort(portNum int) (*ManagedProcess, error) {
 	// Get port information
-	portInfo, err := pa.scanner.GetPortInfo(port)
+	portInfo, err := pa.scanner.GetPortInfo(portNum)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get port info: %w", err)
 	}
 
 	// Check if port is in use
 	if portInfo.PID <= 0 {
-		return nil, fmt.Errorf("port %d is not in use or process not identified", port)
+		return nil, fmt.Errorf("port %d is not in use or process not identified", portNum)
 	}
 
 	// Adopt the process by PID
@@ -98,7 +98,7 @@ func (pa *ProcessAdopter) AdoptProcessByPort(port int) (*ManagedProcess, error) 
 
 	// Update port information
 	if managedProcess.Config.Port == 0 {
-		managedProcess.Config.Port = port
+		managedProcess.Config.Port = portNum
 	}
 
 	return managedProcess, nil
@@ -170,7 +170,7 @@ func (pa *ProcessAdopter) isProcessRunning(pid int) bool {
 
 	// On Unix systems, Signal(0) tests if process exists without sending actual signal
 	// On Windows, this behaves differently, so we use platform-specific checks
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == port.OSWindows {
 		return pa.isProcessRunningWindows(pid)
 	}
 
@@ -199,9 +199,9 @@ func (pa *ProcessAdopter) getProcessWorkingDir(pid int) (string, error) {
 	defer cancel()
 
 	switch runtime.GOOS {
-	case "darwin", "linux":
+	case port.OSDarwin, port.OSLinux:
 		// Try to read from /proc/<pid>/cwd (Linux) or use lsof (macOS)
-		if runtime.GOOS == "linux" {
+		if runtime.GOOS == port.OSLinux {
 			link := fmt.Sprintf("/proc/%d/cwd", pid)
 			if target, err := os.Readlink(link); err == nil {
 				return target, nil
@@ -220,7 +220,7 @@ func (pa *ProcessAdopter) getProcessWorkingDir(pid int) (string, error) {
 			}
 		}
 
-	case "windows":
+	case port.OSWindows:
 		// Windows doesn't have a direct equivalent, skip for now
 		return "", errors.New("working directory detection not supported on Windows")
 	}
@@ -232,7 +232,7 @@ func (pa *ProcessAdopter) getProcessWorkingDir(pid int) (string, error) {
 func (pa *ProcessAdopter) evaluateProcessSuitability(info *AdoptionInfo) (bool, string) {
 	// Check if it's a system process (PID < 1000 on Unix, < 100 on Windows)
 	systemPIDThreshold := 1000
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == port.OSWindows {
 		systemPIDThreshold = 100
 	}
 

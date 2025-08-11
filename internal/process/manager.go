@@ -80,7 +80,7 @@ func (pm *ProcessManager) generateID(command string) string {
 }
 
 // ShouldStartNew determines if a new process should be started or an existing one reused
-func (pm *ProcessManager) ShouldStartNew(command string, port int) (bool, *ManagedProcess) {
+func (pm *ProcessManager) ShouldStartNew(command string, portNum int) (bool, *ManagedProcess) {
 	pm.mutex.RLock()
 	defer pm.mutex.RUnlock()
 
@@ -93,11 +93,11 @@ func (pm *ProcessManager) ShouldStartNew(command string, port int) (bool, *Manag
 
 	// 2. Check port availability if specified
 	//nolint:nestif // Complex port conflict logic is necessary for correctness
-	if port > 0 {
-		if pm.portScanner.IsPortInUse(port) {
+	if portNum > 0 {
+		if pm.portScanner.IsPortInUse(portNum) {
 			// Check if the port is occupied by one of our managed processes
 			for _, process := range pm.processes {
-				if process.Port == port && process.IsRunning() {
+				if process.Port == portNum && process.IsRunning() {
 					// Only return the process if it's the same command
 					if process.Command == command {
 						return false, process // Same command, reuse process
@@ -169,7 +169,7 @@ func (pm *ProcessManager) AdoptProcess(managedProcess *ManagedProcess) error {
 
 	// Validate the process
 	if managedProcess == nil {
-		return fmt.Errorf("cannot adopt nil process")
+		return errors.New("cannot adopt nil process")
 	}
 
 	if managedProcess.PID <= 0 {

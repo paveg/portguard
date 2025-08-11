@@ -34,18 +34,18 @@ var importPortCmd = &cobra.Command{
 Portguard will detect the process using that port and add it to management.`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		port, err := strconv.Atoi(args[0])
+		portNum, err := strconv.Atoi(args[0])
 		if err != nil {
 			fmt.Printf("Invalid port number: %s\n", args[0])
 			return
 		}
 
-		if err := importProcessByPort(port); err != nil {
-			fmt.Printf("Failed to import process on port %d: %v\n", port, err)
+		if err := importProcessByPort(portNum); err != nil {
+			fmt.Printf("Failed to import process on port %d: %v\n", portNum, err)
 			return
 		}
 
-		fmt.Printf("Successfully imported process on port %d\n", port)
+		fmt.Printf("Successfully imported process on port %d\n", portNum)
 	},
 }
 

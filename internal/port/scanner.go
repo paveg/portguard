@@ -23,6 +23,14 @@ var (
 	ErrPortRangeOrder      = errors.New("start port must be less than end port")
 )
 
+// Constants for process identification
+const (
+	UnknownProcessName = "unknown"
+	OSWindows          = "windows"
+	OSDarwin           = "darwin"
+	OSLinux            = "linux"
+)
+
 // Scanner implements PortScanner interface for cross-platform port scanning
 type Scanner struct {
 	timeout time.Duration
@@ -138,9 +146,9 @@ func (s *Scanner) FindAvailablePort(startPort int) (int, error) {
 // This is platform-specific and may not work on all systems
 func (s *Scanner) getProcessInfoForPort(port int) (int, string, error) {
 	switch runtime.GOOS {
-	case "darwin", "linux":
+	case OSDarwin, OSLinux:
 		return s.getProcessInfoUnix(port)
-	case "windows":
+	case OSWindows:
 		return s.getProcessInfoWindows(port)
 	default:
 		return -1, "", fmt.Errorf("%w: %s", ErrUnsupportedPlatform, runtime.GOOS)
@@ -168,7 +176,7 @@ func (s *Scanner) getProcessInfoUnix(port int) (int, string, error) {
 				return pid, processName, nil
 			}
 			// If ps fails, return PID without name
-			return pid, "unknown", nil
+			return pid, UnknownProcessName, nil
 		}
 	}
 
@@ -181,7 +189,7 @@ func (s *Scanner) getProcessInfoUnix(port int) (int, string, error) {
 
 	// If both methods fail, check if port is actually in use
 	if s.IsPortInUse(port) {
-		return -1, "unknown", nil // Port in use but can't identify process
+		return -1, UnknownProcessName, nil // Port in use but can't identify process
 	}
 
 	return -1, "", fmt.Errorf("port %d not in use or process info unavailable", port)
@@ -258,7 +266,7 @@ func (s *Scanner) parseNetstatOutputWindows(output string, targetPort int) (int,
 						}
 					}
 					// If tasklist fails, return PID without name
-					return pid, "unknown", nil
+					return pid, UnknownProcessName, nil
 				}
 			}
 		}
@@ -282,9 +290,7 @@ func (s *Scanner) parseTasklistOutput(output string) string {
 		if len(parts) > 0 {
 			processName := strings.Trim(parts[0], `"`)
 			// Remove .exe extension if present
-			if strings.HasSuffix(processName, ".exe") {
-				processName = strings.TrimSuffix(processName, ".exe")
-			}
+			processName = strings.TrimSuffix(processName, ".exe")
 			return processName
 		}
 	}
@@ -422,7 +428,7 @@ func (s *Scanner) DiscoverDevelopmentServers(startPort, endPort int) ([]PortInfo
 	}
 
 	for _, portInfo := range portsInUse {
-		if portInfo.PID > 0 && portInfo.ProcessName != "" && portInfo.ProcessName != "unknown" {
+		if portInfo.PID > 0 && portInfo.ProcessName != "" && portInfo.ProcessName != UnknownProcessName {
 			// Check if process name matches development server patterns
 			processNameLower := strings.ToLower(portInfo.ProcessName)
 			for _, pattern := range devPatterns {
@@ -443,7 +449,7 @@ func (s *Scanner) GetProcessInfoByPID(pid int) (string, string, error) {
 	defer cancel()
 
 	switch runtime.GOOS {
-	case "darwin", "linux":
+	case OSDarwin, OSLinux:
 		// Use ps to get process info
 		cmd := exec.CommandContext(ctx, "ps", "-p", strconv.Itoa(pid), "-o", "comm=,args=")
 		output, err := cmd.Output()
@@ -461,7 +467,7 @@ func (s *Scanner) GetProcessInfoByPID(pid int) (string, string, error) {
 			}
 		}
 
-	case "windows":
+	case OSWindows:
 		// Use tasklist for Windows
 		cmd := exec.CommandContext(ctx, "tasklist", "/FI", fmt.Sprintf("PID eq %d", pid), "/FO", "CSV", "/NH")
 		output, err := cmd.Output()
