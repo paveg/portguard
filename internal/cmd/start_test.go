@@ -12,7 +12,7 @@ import (
 
 func TestStartCommand_Structure(t *testing.T) {
 	t.Run("command_has_correct_metadata", func(t *testing.T) {
-		assert.Equal(t, "start <command>", startCmd.Use)
+		assert.Equal(t, "start <command|project>", startCmd.Use)
 		assert.Equal(t, "Start a new process or reuse existing one", startCmd.Short)
 		assert.NotNil(t, startCmd.RunE)
 		assert.NotNil(t, startCmd.Args)

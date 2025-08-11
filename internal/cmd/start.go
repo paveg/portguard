@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/paveg/portguard/internal/config"
 	"github.com/paveg/portguard/internal/lock"
 	portpkg "github.com/paveg/portguard/internal/port"
 	"github.com/paveg/portguard/internal/process"
@@ -16,25 +17,87 @@ import (
 )
 
 var startCmd = &cobra.Command{
-	Use:   "start <command>",
+	Use:   "start <command|project>",
 	Short: "Start a new process or reuse existing one",
 	Long: `Start a new process or reuse an existing one if the same command is already running.
 Includes intelligent duplicate detection and port conflict resolution.
 
+You can either provide a direct command or a project name from your configuration.
+
 Examples:
+  # Direct command
   portguard start "go run main.go" --port 3000
   portguard start "npm run dev" --port 3001 --health-check http://localhost:3001/health
-  portguard start "python app.py" --background`,
+  
+  # Project from configuration
+  portguard start api          # Uses projects.api.command from config
+  portguard start web          # Uses projects.web.command from config`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(_ *cobra.Command, args []string) error {
-		command := args[0]
+		input := args[0]
 
-		fmt.Printf("Starting command: %s\n", command)
-		if port > 0 {
-			fmt.Printf("Target port: %d\n", port)
+		// Load configuration
+		cfg, err := config.Load()
+		if err != nil {
+			// Configuration loading failed, but we can still proceed with direct commands
+			fmt.Printf("Warning: Failed to load configuration: %v\n", err)
 		}
-		if healthCheck != "" {
-			fmt.Printf("Health check: %s\n", healthCheck)
+
+		// ENHANCED: Check if input is a project name first
+		var command string
+		var projectConfig *config.ProjectConfig
+		var isProject bool
+		
+		if cfg != nil {
+			if project, exists := cfg.GetProject(input); exists {
+				// Input is a project name
+				command = project.Command
+				projectConfig = project
+				isProject = true
+				fmt.Printf("Using project '%s' with command: %s\n", input, command)
+			}
+		}
+		
+		if !isProject {
+			// Input is a direct command
+			command = input
+			fmt.Printf("Starting command: %s\n", command)
+		}
+
+		// Use project configuration for defaults if available
+		effectivePort := port
+		effectiveHealthCheck := healthCheck
+		
+		if projectConfig != nil {
+			// Override with project config if not specified via flags
+			if port == 0 && projectConfig.Port > 0 {
+				effectivePort = projectConfig.Port
+				fmt.Printf("Using project port: %d\n", effectivePort)
+			}
+			if healthCheck == "" && projectConfig.HealthCheck != nil {
+				// Convert project health check to string format for parsing
+				switch projectConfig.HealthCheck.Type {
+				case process.HealthCheckHTTP:
+					effectiveHealthCheck = projectConfig.HealthCheck.Target
+				case process.HealthCheckTCP:
+					effectiveHealthCheck = projectConfig.HealthCheck.Target
+				case process.HealthCheckCommand:
+					effectiveHealthCheck = projectConfig.HealthCheck.Target
+				case process.HealthCheckNone:
+					// No health check configured
+					effectiveHealthCheck = ""
+				}
+				if effectiveHealthCheck != "" {
+					fmt.Printf("Using project health check: %s\n", effectiveHealthCheck)
+				}
+			}
+		}
+
+		if effectivePort > 0 {
+			fmt.Printf("Target port: %d\n", effectivePort)
+		}
+		if effectiveHealthCheck != "" {
+			fmt.Printf("Health check: %s\n", effectiveHealthCheck)
 		}
 		if background {
 			fmt.Println("Running in background mode")
@@ -63,13 +126,20 @@ Examples:
 
 		// Setup start options
 		options := process.StartOptions{
-			Port:       port,
+			Port:       effectivePort,
 			Background: background,
 		}
 
+		// Add project-specific options if available
+		if projectConfig != nil {
+			options.Environment = projectConfig.Environment
+			options.WorkingDir = projectConfig.WorkingDir
+			options.LogFile = projectConfig.LogFile
+		}
+
 		// Parse health check if provided
-		if healthCheck != "" {
-			healthCheckObj, parseErr := parseHealthCheck(healthCheck)
+		if effectiveHealthCheck != "" {
+			healthCheckObj, parseErr := parseHealthCheck(effectiveHealthCheck)
 			if parseErr != nil {
 				return fmt.Errorf("failed to parse health check: %w", parseErr)
 			}
@@ -89,6 +159,9 @@ Examples:
 		fmt.Printf("   Status: %s\n", process.Status)
 		if process.Port > 0 {
 			fmt.Printf("   Port: %d\n", process.Port)
+		}
+		if isProject {
+			fmt.Printf("   Project: %s\n", input)
 		}
 
 		return nil
