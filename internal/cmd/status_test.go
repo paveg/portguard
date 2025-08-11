@@ -253,8 +253,8 @@ func (t *testStatusLockManager) IsLocked() bool { return false }
 type testStatusPortScanner struct{}
 
 func (t *testStatusPortScanner) IsPortInUse(port int) bool { return false }
-func (t *testStatusPortScanner) GetPortInfo(port int) (*process.PortInfo, error) {
-	return &process.PortInfo{
+func (t *testStatusPortScanner) GetPortInfo(port int) (*portpkg.PortInfo, error) {
+	return &portpkg.PortInfo{
 		Port:        port,
 		PID:         0,
 		ProcessName: "",
@@ -262,8 +262,8 @@ func (t *testStatusPortScanner) GetPortInfo(port int) (*process.PortInfo, error)
 		Protocol:    "tcp",
 	}, nil
 }
-func (t *testStatusPortScanner) ScanRange(startPort, endPort int) ([]process.PortInfo, error) {
-	return []process.PortInfo{}, nil
+func (t *testStatusPortScanner) ScanRange(startPort, endPort int) ([]portpkg.PortInfo, error) {
+	return []portpkg.PortInfo{}, nil
 }
 func (t *testStatusPortScanner) FindAvailablePort(startPort int) (int, error) {
 	return startPort, nil

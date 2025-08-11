@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/paveg/portguard/internal/port"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -58,27 +59,27 @@ type mockPortScanner struct {
 	mock.Mock
 }
 
-func (m *mockPortScanner) IsPortInUse(port int) bool {
-	args := m.Called(port)
+func (m *mockPortScanner) IsPortInUse(portNum int) bool {
+	args := m.Called(portNum)
 	return args.Bool(0)
 }
 
-func (m *mockPortScanner) GetPortInfo(port int) (*PortInfo, error) {
-	args := m.Called(port)
+func (m *mockPortScanner) GetPortInfo(portNum int) (*port.PortInfo, error) {
+	args := m.Called(portNum)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	//nolint:errcheck // Mock args.Get is safe in testify
-	return args.Get(0).(*PortInfo), args.Error(1)
+	return args.Get(0).(*port.PortInfo), args.Error(1)
 }
 
-func (m *mockPortScanner) ScanRange(startPort, endPort int) ([]PortInfo, error) {
+func (m *mockPortScanner) ScanRange(startPort, endPort int) ([]port.PortInfo, error) {
 	args := m.Called(startPort, endPort)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	//nolint:errcheck // Mock args.Get is safe in testify
-	return args.Get(0).([]PortInfo), args.Error(1)
+	return args.Get(0).([]port.PortInfo), args.Error(1)
 }
 
 func (m *mockPortScanner) FindAvailablePort(startPort int) (int, error) {

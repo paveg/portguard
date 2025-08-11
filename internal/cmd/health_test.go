@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	portpkg "github.com/paveg/portguard/internal/port"
 	"github.com/paveg/portguard/internal/process"
 	"github.com/paveg/portguard/internal/state"
 	"github.com/stretchr/testify/assert"
@@ -253,11 +254,11 @@ func (t *testLockManager) IsLocked() bool { return false }
 type testPortScanner struct{}
 
 func (t *testPortScanner) IsPortInUse(port int) bool { return false }
-func (t *testPortScanner) GetPortInfo(port int) (*process.PortInfo, error) {
-	return &process.PortInfo{Port: port, PID: 0, ProcessName: "", IsManaged: false, Protocol: "tcp"}, nil
+func (t *testPortScanner) GetPortInfo(port int) (*portpkg.PortInfo, error) {
+	return &portpkg.PortInfo{Port: port, PID: 0, ProcessName: "", IsManaged: false, Protocol: "tcp"}, nil
 }
-func (t *testPortScanner) ScanRange(startPort, endPort int) ([]process.PortInfo, error) {
-	return []process.PortInfo{}, nil
+func (t *testPortScanner) ScanRange(startPort, endPort int) ([]portpkg.PortInfo, error) {
+	return []portpkg.PortInfo{}, nil
 }
 func (t *testPortScanner) FindAvailablePort(startPort int) (int, error) {
 	return startPort, nil

@@ -11,8 +11,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/paveg/portguard/internal/process"
 )
 
 const (
@@ -158,7 +156,7 @@ func TestScanner_GetPortInfo(t *testing.T) {
 	tests := []struct {
 		name        string
 		setupServer func(t *testing.T) (int, func())
-		validate    func(t *testing.T, portInfo *process.PortInfo, err error)
+		validate    func(t *testing.T, portInfo *PortInfo, err error)
 	}{
 		{
 			name: "available_port_info",
@@ -167,7 +165,7 @@ func TestScanner_GetPortInfo(t *testing.T) {
 				port := findTestPort(t)
 				return port, func() {}
 			},
-			validate: func(t *testing.T, portInfo *process.PortInfo, err error) {
+			validate: func(t *testing.T, portInfo *PortInfo, err error) {
 				t.Helper()
 				require.NoError(t, err)
 				require.NotNil(t, portInfo)
@@ -185,7 +183,7 @@ func TestScanner_GetPortInfo(t *testing.T) {
 				_, cleanup := createTestServer(t, port)
 				return port, cleanup
 			},
-			validate: func(t *testing.T, portInfo *process.PortInfo, err error) {
+			validate: func(t *testing.T, portInfo *PortInfo, err error) {
 				t.Helper()
 				require.NoError(t, err)
 				require.NotNil(t, portInfo)
@@ -280,14 +278,14 @@ func TestScanner_ScanRange(t *testing.T) {
 		startPort int
 		endPort   int
 		setup     func(t *testing.T, startPort, endPort int) func()
-		validate  func(t *testing.T, portInfos []process.PortInfo, err error)
+		validate  func(t *testing.T, portInfos []PortInfo, err error)
 	}{
 		{
 			name:      "scan_empty_range",
 			startPort: testPortStart + 200,
 			endPort:   testPortStart + 210,
 			setup:     func(t *testing.T, startPort, endPort int) func() { t.Helper(); return func() {} },
-			validate: func(t *testing.T, portInfos []process.PortInfo, err error) {
+			validate: func(t *testing.T, portInfos []PortInfo, err error) {
 				t.Helper()
 				require.NoError(t, err)
 				// FIXED: portInfos can be nil or empty slice when no ports in use
@@ -313,7 +311,7 @@ func TestScanner_ScanRange(t *testing.T) {
 					cleanup2()
 				}
 			},
-			validate: func(t *testing.T, portInfos []process.PortInfo, err error) {
+			validate: func(t *testing.T, portInfos []PortInfo, err error) {
 				t.Helper()
 				require.NoError(t, err)
 
@@ -338,7 +336,7 @@ func TestScanner_ScanRange(t *testing.T) {
 			startPort: testPortStart + 400,
 			endPort:   testPortStart + 350, // End before start
 			setup:     func(t *testing.T, startPort, endPort int) func() { t.Helper(); return func() {} },
-			validate: func(t *testing.T, portInfos []process.PortInfo, err error) {
+			validate: func(t *testing.T, portInfos []PortInfo, err error) {
 				t.Helper()
 				require.Error(t, err)
 				assert.Nil(t, portInfos)
@@ -350,7 +348,7 @@ func TestScanner_ScanRange(t *testing.T) {
 			startPort: -1,
 			endPort:   testPortStart + 400,
 			setup:     func(t *testing.T, startPort, endPort int) func() { t.Helper(); return func() {} },
-			validate: func(t *testing.T, portInfos []process.PortInfo, err error) {
+			validate: func(t *testing.T, portInfos []PortInfo, err error) {
 				t.Helper()
 				require.Error(t, err)
 				assert.Nil(t, portInfos)
