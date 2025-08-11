@@ -379,39 +379,104 @@ ci: CI/CD changes
 
 ### Release Management
 
-**ALWAYS update CHANGELOG.md before cutting a release**:
+#### Proper Release Process (CRITICAL - DO NOT SKIP STEPS)
 
-1. **Before creating any release**:
+**⚠️ WARNING**: Improper release process will cause Go module checksum errors and installation failures!
+
+##### Step 1: Pre-release Preparation
+
+1. **Update version in ALL required files**:
    ```bash
-   # Update CHANGELOG.md with new version section
-   vim CHANGELOG.md
+   # Update version constant in source code
+   vim internal/cmd/root.go  # Update: var Version = "X.Y.Z"
    
-   # Commit changelog update
-   git add CHANGELOG.md
-   git commit -m "docs: update changelog for v1.2.0"
+   # Update version in Makefile
+   vim Makefile  # Update: VERSION?=X.Y.Z
    
-   # Then create release
-   git tag v1.2.0
-   git push origin v1.2.0
+   # Verify versions match
+   grep "Version.*=" internal/cmd/root.go
+   grep "VERSION?=" Makefile
    ```
 
-2. **CHANGELOG.md format**:
-   ```markdown
-   # Changelog
-   
-   ## [1.2.0] - 2025-08-11
-   
-   ### Added
-   - Complete health check system (HTTP/TCP/Command)
-   - Port scanning functionality
-   - Process status reporting
-   
+2. **Update CHANGELOG.md**:
+   ```bash
+   vim CHANGELOG.md
+   # Add new version section with changes
+   ```
+
+3. **Run all checks**:
+   ```bash
+   make test          # All tests must pass
+   make lint          # Zero linting issues
+   make build         # Build successfully
+   ./bin/portguard --version  # Verify correct version displays
+   ```
+
+##### Step 2: Commit and Tag (DO THIS CORRECTLY!)
+
+```bash
+# 1. Commit all version updates together
+git add internal/cmd/root.go Makefile CHANGELOG.md
+git commit -m "release: prepare vX.Y.Z"
+
+# 2. Create PR to main branch (required due to branch protection)
+git push origin feature/release-vX.Y.Z
+gh pr create --title "Release vX.Y.Z" --body "..."
+
+# 3. After PR is merged, tag from main branch
+git checkout main
+git pull origin main
+git tag vX.Y.Z
+git push origin vX.Y.Z
+
+# 4. Create GitHub release
+gh release create vX.Y.Z --title "vX.Y.Z" --notes "..."
+```
+
+##### Step 3: Verify Release
+
+```bash
+# Wait 1-2 minutes for Go proxy to update
+sleep 120
+
+# Test installation (should work WITHOUT any environment variables)
+go install github.com/paveg/portguard/cmd/portguard@vX.Y.Z
+$(go env GOPATH)/bin/portguard --version  # Should show vX.Y.Z
+```
+
+#### Common Mistakes to Avoid
+
+❌ **NEVER do these**:
+- Don't update version in only one file (must update both root.go AND Makefile)
+- Don't delete and recreate tags (causes checksum mismatches)
+- Don't push tags before version files are updated
+- Don't create release from unmerged branches
+- Don't skip the PR process for main branch
+
+✅ **ALWAYS do these**:
+- Update ALL version references before tagging
+- Create tags only once (never delete/recreate)
+- Test the build locally before releasing
+- Use PRs for main branch updates
+- Wait for CI checks to pass before releasing
+
+#### Emergency: Fixing a Broken Release
+
+If a release is broken (wrong version displayed, checksum errors, etc.):
+
+1. **Create a NEW version** (never reuse version numbers):
+   ```bash
+   # If vX.Y.Z is broken, create vX.Y.(Z+1)
+   # Update all version files to new version
+   # Follow proper release process from Step 1
+   ```
+
+2. **Document the issue**:
+   ```bash
+   # In CHANGELOG.md, note why the new version was needed
+   ## [X.Y.Z+1] - Date
    ### Fixed
-   - ProcessManager cleanup now properly terminates processes
-   - Resolved all linting issues
-   
-   ### Changed
-   - Improved error handling throughout codebase
+   - Fixed version mismatch from vX.Y.Z release
    ```
 
 ## Mandatory Pre-Commit Checks
