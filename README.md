@@ -1,7 +1,7 @@
 # Portguard
 
 [![CI](https://github.com/paveg/portguard/workflows/CI/badge.svg)](https://github.com/paveg/portguard/actions)
-[![Coverage](https://img.shields.io/badge/Coverage-0%25-red)](https://github.com/paveg/portguard/actions)
+[![codecov](https://codecov.io/gh/paveg/portguard/graph/badge.svg?token=20P31OII5Q)](https://codecov.io/gh/paveg/portguard)
 [![Go Report Card](https://goreportcard.com/badge/github.com/paveg/portguard)](https://goreportcard.com/report/github.com/paveg/portguard)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 

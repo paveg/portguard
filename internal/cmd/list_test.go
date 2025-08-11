@@ -61,7 +61,7 @@ func executeListCmd(t *testing.T, args []string) (string, error) {
 	var buf bytes.Buffer
 
 	// Simple argument parsing for mock testing
-	var includeAll, jsonOutput, verboseOutput bool
+	var includeAll, jsonOut, verboseOutput bool
 	var filterPort int
 	var filterStatus string
 
@@ -80,7 +80,7 @@ func executeListCmd(t *testing.T, args []string) (string, error) {
 			}
 			filterPort = port
 		case "--json", "-j":
-			jsonOutput = true
+			jsonOut = true
 		case "--status":
 			if i+1 >= len(args) {
 				continue
@@ -115,7 +115,7 @@ func executeListCmd(t *testing.T, args []string) (string, error) {
 		filteredProcesses = append(filteredProcesses, proc)
 	}
 
-	if jsonOutput {
+	if jsonOut {
 		// JSON output
 		result := map[string]interface{}{
 			"processes": filteredProcesses,

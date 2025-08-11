@@ -18,7 +18,8 @@ func executeCheckCmd(t *testing.T, args []string) (string, error) {
 
 	// Simple argument parsing for mock testing
 	var port int
-	var available, jsonOutput bool
+	var available bool
+	var jsonOut bool
 	var startPort, endPort = 3000, 9000
 
 	// Parse args manually for testing
@@ -37,7 +38,7 @@ func executeCheckCmd(t *testing.T, args []string) (string, error) {
 		case "--available":
 			available = true
 		case "--json", "-j":
-			jsonOutput = true
+			jsonOut = true
 		case "--start":
 			if i+1 >= len(args) {
 				continue
@@ -62,7 +63,7 @@ func executeCheckCmd(t *testing.T, args []string) (string, error) {
 	}
 
 	// Generate mock responses
-	if jsonOutput {
+	if jsonOut {
 		switch {
 		case available:
 			// Mock finding available ports
